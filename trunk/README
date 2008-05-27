@@ -1,0 +1,47 @@
+= about = 
+
+This is just a quick readme file to get you started. As information in text files gets outdated too quickly, please refer to the netkickern wiki at http://relet.net/trac/netkickern if you encounter anything unexpected.
+
+= requirements = 
+
+Netkickern is written in Python. Based on the dependencies, it should run on Linux/Unix and Windows environments. I have only tested it on Ubuntu Linux, though.
+
+* Python (>= 2.4 tested): http://python.org
+* Panda3d (1.4.2 tested, 1.5.2 known to be broken): http://panda3d.org
+* pyode (1.2.0 tested): http://pyode.sourceforge.net/
+
+You should find python and pyode in most debianesque package trees, packages for Panda3d can be downloaded from their site.
+
+= running = 
+
+> python kickern.py
+
+will start the game in server mode. The game will wait for another player to connect.
+
+> python kickern.py server
+
+will start the game in client mode. The game will try to connect to "server" (IP or resolvable hostname).
+
+= playing = 
+
+Move your mouse to move all players at once. Try to score by pushing the ball into the opposite (right) goal.
+
+= configuration =
+
+Configuration is not implemented yet. Some things may be configured by parameters at the beginning of the python file.
+This includes team names, network ports and data directiories. 
+
+= comments = 
+
+Please send feedback to 
+  thomas.hirsch gmail com
+  jabber://relet@jabber.ccc.de
+
+If you're an experienced or enthusiastic 3d or game designer, or just interested in contributing, please contact me.
+
+I'm especially looking for
+ - high quality, accurate textures and models of tables and players
+ - official measurements and photos of tournament tables
+ - improvements in physics/mouse handling which allow to catch the ball and generally make the gameplay more realistic
+
+Enjoy.
