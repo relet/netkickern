@@ -397,6 +397,8 @@ def moveKickerTask(task):
       dt = task.time
     else:
       dt = task.time/task.frame * 2 # this is a global average. TODO: change to sliding window
+    if dt==0: 
+      dt = 0.01
   
     for i in range(STEPS):
       x = (mx * i + oldx * (STEPS-i)) / STEPS
