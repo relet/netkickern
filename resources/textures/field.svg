@@ -8,14 +8,17 @@
    xmlns="http://www.w3.org/2000/svg"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
-   width="680"
-   height="1200"
+   width="1200.9592"
+   height="684.88342"
    id="svg2"
    sodipodi:version="0.32"
    inkscape:version="0.46"
    version="1.0"
    sodipodi:docname="field.svg"
-   inkscape:output_extension="org.inkscape.output.svg.inkscape">
+   inkscape:output_extension="org.inkscape.output.svg.inkscape"
+   inkscape:export-filename="/home/hir/code/netkickern/resources/textures/field.png"
+   inkscape:export-xdpi="72"
+   inkscape:export-ydpi="72">
   <defs
      id="defs4">
     <inkscape:perspective
@@ -34,16 +37,16 @@
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
      inkscape:zoom="0.49497475"
-     inkscape:cx="318.46673"
-     inkscape:cy="582.52055"
+     inkscape:cx="302.30429"
+     inkscape:cy="623.12078"
      inkscape:document-units="px"
      inkscape:current-layer="layer1"
      showgrid="false"
      inkscape:showpageshadow="false"
      inkscape:window-width="1280"
-     inkscape:window-height="941"
+     inkscape:window-height="800"
      inkscape:window-x="0"
-     inkscape:window-y="49" />
+     inkscape:window-y="0" />
   <metadata
      id="metadata7">
     <rdf:RDF>
@@ -58,14 +61,16 @@
   <g
      inkscape:label="Ebene 1"
      inkscape:groupmode="layer"
-     id="layer1">
+     id="layer1"
+     transform="translate(258.0379,-256.99713)">
     <rect
        style="fill:#00aa00;fill-opacity:1"
        id="rect2393"
        width="682.02026"
        height="1200"
-       x="0.44174194"
-       y="-0.081528425" />
+       x="-941.43884"
+       y="-257.07867"
+       transform="matrix(0,-1,1,0,0,0)" />
     <path
        sodipodi:type="arc"
        style="opacity:1;fill:#ffffff;fill-opacity:1"
@@ -75,14 +80,15 @@
        sodipodi:rx="146.47212"
        sodipodi:ry="146.47212"
        d="M 311.12698,433.29422 A 146.47212,146.47212 0 1 1 18.182739,433.29422 A 146.47212,146.47212 0 1 1 311.12698,433.29422 z"
-       transform="translate(176.79701,168.7261)" />
+       transform="matrix(0,-1,1,0,-88.271032,765.08354)" />
     <rect
        style="opacity:1;fill:#ffffff;fill-opacity:1"
        id="rect4613"
        width="684.88342"
        height="16.162441"
-       x="0"
-       y="593.93903" />
+       x="-941.88055"
+       y="336.94189"
+       transform="matrix(0,-1,1,0,0,0)" />
     <path
        sodipodi:type="arc"
        style="opacity:1;fill:#00aa00;fill-opacity:1"
@@ -92,34 +98,38 @@
        sodipodi:rx="134.3503"
        sodipodi:ry="134.3503"
        d="M 539.42146,661.58868 A 134.3503,134.3503 0 1 1 270.72087,661.58868 A 134.3503,134.3503 0 1 1 539.42146,661.58868 z"
-       transform="translate(-63.619293,-59.56842)" />
+       transform="matrix(0,-1,1,0,-316.56555,1005.4998)" />
     <rect
        style="opacity:1;fill:#ffffff;fill-opacity:1"
        id="rect4615"
        width="204.05081"
        height="90.913727"
-       x="239.42647"
-       y="-1.0407848" />
+       x="-702.4541"
+       y="-258.0379"
+       transform="matrix(0,-1,1,0,0,0)" />
     <rect
        style="opacity:1;fill:#00aa00;fill-opacity:1"
        id="rect4617"
        width="181.82745"
        height="80.812202"
-       x="250.53815"
-       y="-0.081528425" />
+       x="-691.34241"
+       y="-257.07867"
+       transform="matrix(0,-1,1,0,0,0)" />
     <rect
        style="opacity:1;fill:#ffffff;fill-opacity:1"
        id="rect4619"
        width="204.05081"
        height="90.913727"
-       x="239.42647"
-       y="1107.0048" />
+       x="-702.4541"
+       y="850.00763"
+       transform="matrix(0,-1,1,0,0,0)" />
     <rect
        style="opacity:1;fill:#00aa00;fill-opacity:1"
        id="rect4621"
        width="181.82745"
        height="80.812202"
-       x="250.53815"
-       y="1117.1063" />
+       x="-691.34241"
+       y="860.10919"
+       transform="matrix(0,-1,1,0,0,0)" />
   </g>
 </svg>

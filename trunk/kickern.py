@@ -168,7 +168,7 @@ def textFormat(text):
   text.setShadowColor(0,0,0,1)
 
 title = TextNode('testtext')
-title.setText("KICKERN 0.1 alpha.")
+title.setText("NetKickern")
 title.setAlign(TextNode.ACenter)
 textFormat(title)
 textNodePath = aspect2d.attachNewNode(title)
@@ -238,16 +238,16 @@ tableW2.setPosition((0,baseheight-5,-15.8))
 
 #goalside walls
 tableW31 = ode.GeomBox(space, (2,5,9))
-tableW31.setPosition((-28,baseheight-2.5,-11.5))
+tableW31.setPosition((-28,baseheight-2.5,-10.5))
 tableW32 = ode.GeomBox(space, (2,5,9))
-tableW32.setPosition((-28,baseheight-2.5,11.5))
+tableW32.setPosition((-28,baseheight-2.5,10.5))
 tableW33 = ode.GeomBox(space, (2,5,32))
 tableW33.setPosition((-28,baseheight-7.5,0))
 
 tableW41 = ode.GeomBox(space, (2,5,9))
-tableW41.setPosition((28,baseheight-2.5,-11.5))
+tableW41.setPosition((28,baseheight-2.5,-10.5))
 tableW42 = ode.GeomBox(space, (2,5,9))
-tableW42.setPosition((28,baseheight-2.5,11.5))
+tableW42.setPosition((28,baseheight-2.5,10.5))
 tableW43 = ode.GeomBox(space, (2,5,32))
 tableW43.setPosition((28,baseheight-7.5,0))
 
@@ -318,7 +318,8 @@ kicker2.setScale(.65,.65,.65)
 kicker2.setPos(3,79.5,0)
 kicker2.setR(180)
 
-table = loader.loadModel(DATAPATH+"models/doof.x")
+table = loader.loadModel(DATAPATH+"models/table.x")
+#table = loader.loadModel(DATAPATH+"models/doof.x")
 table.reparentTo(render)
 table.setScale(4,4,4)
 table.setPos(0,82,0)
@@ -378,7 +379,13 @@ for i in range(3):
 
 ### Load and apply textures ############################################
 
-texField = loader.loadTexture(DATAPATH+"textures/fussballfeld.png")
+texField = loader.loadTexture(DATAPATH+"textures/field.png")
+field = table.find("**/Cube")
+field.setTexGen(TextureStage.getDefault(), TexGenAttrib.MWorldPosition)
+field.setTexTransform(TextureStage.getDefault(), TransformState.makeHpr(VBase3(0,90,0)))
+field.setTexPos(TextureStage.getDefault(), 0.5,0.5,0.5)
+field.setTexScale(TextureStage.getDefault(), 0.018, 0.05, 0.03)
+field.setTexture(texField)
 
 ### SET UP Mouse control #############################################
 base.disableMouse()
@@ -394,7 +401,6 @@ oldoy=0
 
 def moveKickerTask(task):
   global oldx, oldy, omx, omy, oldox, oldoy, p1score, p2score
-  # TODO: make this a gradual transition to the new position! divide into e.g. 10 steps and call physics engine on each one
   if base.mouseWatcherNode.hasMouse():
     mx=base.mouseWatcherNode.getMouseX()
     my=base.mouseWatcherNode.getMouseY()  
