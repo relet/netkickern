@@ -1,23 +1,24 @@
 #!/usr/bin/env python
 
 DATAPATH="./data/" # where to find data files (.x models)
-PORT=5036     # default port to use for connections
+PORT=5036          # default port to use for connections
 
-STEPS = 10  #each mouse movement is divided into STEPS steps, to keep physics changes smooth # 10 is good for solo use
+STEPS = 10         #each mouse movement is divided into STEPS steps, to keep physics changes smooth. 10 is good for solo use
 
-P1NAME = "NET"
-P2NAME = "MOTION"
+P1NAME = "NET"     #the server, currently.
+P2NAME = "MOTION"  #the client, currently.
 
 #list of used packet types
-PACKET_HELLO = 0 # identification using magic word
-PACKET_SCORE = 1 # send a score update to client
-PACKET_PING  = 2 # measure round trip time
-PACKET_PONG  = 3 # measure round trip time
-PACKET_START = 4 # start game notification
-PACKET_MOVE  = 5 # movement update client -> server
-PACKET_SET   = 6 # physics & movement update, server -> client
+PACKET_HELLO = 0   # identification using magic word
+PACKET_SCORE = 1   # send a score update to client
+PACKET_PING  = 2   # measure round trip time
+PACKET_PONG  = 3   # measure round trip time
+PACKET_START = 4   # start game notification
+PACKET_MOVE  = 5   # movement update client -> server
+PACKET_SET   = 6   # physics & movement update, server -> client
 
 MAGIC_WORD   = "kickern?"
+PROTOCOL_VERSION = 1  # to be increased with each protocol change
 
 ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
@@ -52,7 +53,7 @@ def tskReaderPolling(taskdata):
   return Task.cont
 
 def pingTask(task):
-  if (task.frame % 1000) > 0: #we don't actually need this anymore
+  if (task.frame % 1000) > 0: #determine network delay every now and then (every 1000 frames)
     return Task.cont
   ping = PyDatagram()
   ping.addUint16(PACKET_PING)
@@ -62,38 +63,46 @@ def pingTask(task):
 
 def myProcessDataFunction(datagram):
   data = PyDatagramIterator(datagram)
-  pktType = data.getUint16()
-  if pktType==PACKET_SET:
-    setGameStatus(data)
-  elif pktType==PACKET_SCORE:
-    setScore(data)
-  elif pktType==PACKET_MOVE:
-    setOpponentMove(data)
-  elif pktType==PACKET_HELLO:
-    magic = data.getString()
-    if magic == MAGIC_WORD:
-      print "ok, client connected."
+  try: 
+    pktType = data.getUint16()
+    if pktType==PACKET_SET:
+      setGameStatus(data)
+    elif pktType==PACKET_SCORE:
+      setScore(data)
+    elif pktType==PACKET_MOVE:
+      setOpponentMove(data)
+    elif pktType==PACKET_HELLO:
+      magic = data.getString()
+      proto = data.getUint16()
+      if magic != MAGIC_WORD:
+        print "Connecting party did not identify as netkickern client."
+        sys.exit(1)
+      if proto != PROTOCOL_VERSION:
+        print "Connecting party used incompatible protocol version "+str(proto)+"."
+        print "We are using "+str(PROTOCOL_VERSION)+"."
+        sys.exit(1)
+      print "Ok, client connected."
       welcome = PyDatagram()
       welcome.addUint16(PACKET_START)
       cWriter.send(welcome, myConnection)
       startGame()
-    else:
-      print "connecting party sent wrong credentials."
-      sys.exit(1)
-  elif pktType==PACKET_START:
-    print "connection to game host confirmed."
-    startGame()
-  elif pktType==PACKET_PING:
-    stime = data.getFloat64()
-    pong = PyDatagram()
-    pong.addUint16(PACKET_PONG)
-    pong.addFloat64(stime)
-    cWriter.send(pong, myConnection)
-  elif pktType==PACKET_PONG:
-    stime = data.getFloat64()
-    now = time.time()
-    deltatime = now-stime   # TODO: use this to delay mouse movements by deltatime/2
-    print "network delay: "+str(deltatime*500)+"ms " #rtt/2
+    elif pktType==PACKET_START:
+      print "connection to game host confirmed."
+      startGame()
+    elif pktType==PACKET_PING:
+      stime = data.getFloat64()
+      pong = PyDatagram()
+      pong.addUint16(PACKET_PONG)
+      pong.addFloat64(stime)
+      cWriter.send(pong, myConnection)
+    elif pktType==PACKET_PONG:
+      stime = data.getFloat64()
+      now = time.time()
+      deltatime = now-stime   # TODO: use this to delay mouse movements by deltatime/2
+      print "network delay: "+str(deltatime*500)+"ms " #rtt/2
+  except:
+    print "Communication error."
+    sys.exit(1)
   return
 
 role = ROLE_SERVER #strings are bulky but quick and readable.
@@ -129,15 +138,16 @@ if role == ROLE_SERVER:
   if cListener.getNewConnection(rendezvous,netAddress,myConnection):
     myConnection = myConnection.p()
     activeConnections.append(myConnection) # Remember connection
-    cReader.addConnection(myConnection)     # Begin reading connection
+    cReader.addConnection(myConnection)    # Begin reading connection
 
 else: 
   myConnection=cManager.openTCPClientConnection(server,PORT,3000)
   if myConnection:
-    cReader.addConnection(myConnection)  # receive messages from server
+    cReader.addConnection(myConnection)    # receive messages from server
     welcome = PyDatagram()
     welcome.addUint16(PACKET_HELLO)
-    welcome.addString(MAGIC_WORD) #the magic num^Wword to initiate a game.
+    welcome.addString(MAGIC_WORD)          # the magic word to initiate a game.
+    welcome.addUint16(PROTOCOL_VERSION) 
     cWriter.send(welcome, myConnection)
 
 if not myConnection:
@@ -166,15 +176,15 @@ textNodePath.setScale(0.10)
 textNodePath.setPos(VBase3(0,0,.88))
 
 p1score = 0
-score1 = TextNode('netscore')
-score1.setText("NET 0")
+score1 = TextNode('t1score')
+score1.setText(P1NAME+" 0")
 textFormat(score1)
 textNodePath1 = aspect2d.attachNewNode(score1)
 textNodePath1.setScale(0.10)
 
 p2score = 0
-score2 = TextNode('netscore')
-score2.setText("MOTION 0")
+score2 = TextNode('t2score')
+score2.setText(P2NAME+" 0")
 textFormat(score2)
 textNodePath2 = aspect2d.attachNewNode(score2)
 textNodePath2.setScale(0.10)
@@ -192,6 +202,7 @@ else:
 
 base.setFrameRateMeter(True)
 taskMgr.add(tskReaderPolling,"Poll the connection reader",-40)
+
 
 ### Setup pyODE ########################################################
 world = ode.World()
@@ -216,8 +227,8 @@ tableGeom = ode.GeomBox(space, (56,1,32)) #trial and error
 
 baseheight = 82.4
 
-#tableGeom.setPosition((0,85.7,0)) #theory
-tableGeom.setPosition((0,baseheight,0))  #trial and error
+#tableGeom.setPosition((0,85.7,0))        #theory
+tableGeom.setPosition((0,baseheight,0))   #trial and error
 
 #side walls
 tableW1 = ode.GeomBox(space, (56,10,2))
@@ -225,10 +236,7 @@ tableW1.setPosition((0,baseheight-5,15.8))
 tableW2 = ode.GeomBox(space, (56,10,2))
 tableW2.setPosition((0,baseheight-5,-15.8))
 
-#goal walls
-#tableW3 = ode.GeomBox(space, (2,10,32))
-#tableW3.setPosition((-28,baseheight-5,0))
-
+#goalside walls
 tableW31 = ode.GeomBox(space, (2,5,9))
 tableW31.setPosition((-28,baseheight-2.5,-11.5))
 tableW32 = ode.GeomBox(space, (2,5,9))
@@ -247,13 +255,14 @@ tableW43.setPosition((28,baseheight-7.5,0))
 kickerGeom = []
 KV = 79 #"const" vertical height of kickers
 for i in range(11):
-  kickerGeom.append(ode.GeomBox(space,(2*0.65,6.36*0.65,2.0*0.65))) #exxagerated y height to [-3,18,3,18], actually should be [1.14, -3.18]
-  #kickerGeom.append(ode.GeomBox(space,(2*0.65,4.3227*0.65,2.0*0.65))) #y position still has to be off-centered
+  kickerGeom.append(ode.GeomBox(space,(2*0.65,6.36*0.65,2.0*0.65))) # exxagerated y height to [-3,18,3,18], actually should be [1.14, -3.18]
+                                                                    # y position still has to be off-centered
   kickerGeom[i].setPosition((10,KV,10)) #just some random position. should be reassigned by mouse movement asap.
 
 kickerGeom2 = []
 for i in range(11):
   kickerGeom2.append(ode.GeomBox(space,(2*0.65,6.36*0.65,2.0*0.65))) #exxagerated y height to [-3,18,3,18], actually should be [1.14, -3.18]
+                                                                     # y position still has to be off-centered
   kickerGeom2[i].setPosition((10,KV,10)) #just some random position. should be reassigned by mouse movement asap.
 
 def near_callback(args, geom1, geom2):
@@ -272,8 +281,8 @@ def near_callback(args, geom1, geom2):
 ### place CAMERA ######################################################
 #default camera: top view
 
-#base.camera.setHpr(0,25,0) #25deg angle sideways
-#base.camera.setPos(0,0,-35)
+base.camera.setHpr(0,25,0) #25deg angle sideways
+base.camera.setPos(0,0,-35)
 
 #base.camera.setHpr(0,45,0) #45deg angle sideways
 #base.camera.setPos(0,20,-60)
@@ -309,7 +318,7 @@ kicker2.setScale(.65,.65,.65)
 kicker2.setPos(3,79.5,0)
 kicker2.setR(180)
 
-table = loader.loadModel(DATAPATH+"models/table.x")
+table = loader.loadModel(DATAPATH+"models/doof.x")
 table.reparentTo(render)
 table.setScale(4,4,4)
 table.setPos(0,82,0)
@@ -367,7 +376,11 @@ for i in range(3):
   kickstance.setPos(-13.33,0,i*8-8)
   kicker2.instanceTo(kickstance)
 
-	### SET UP Mouse control #############################################
+### Load and apply textures ############################################
+
+texField = loader.loadTexture(DATAPATH+"textures/fussballfeld.png")
+
+### SET UP Mouse control #############################################
 base.disableMouse()
 
 global oldx, oldy
