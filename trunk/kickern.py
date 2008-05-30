@@ -246,16 +246,16 @@ tableW2.setPosition((0,baseheight-5,-15.8))
 
 #goalside walls
 tableW31 = ode.GeomBox(space, (2,5,9))
-tableW31.setPosition((-28,baseheight-2.5,-10.5))
+tableW31.setPosition((-28,baseheight-2.5,-9))
 tableW32 = ode.GeomBox(space, (2,5,9))
-tableW32.setPosition((-28,baseheight-2.5,10.5))
+tableW32.setPosition((-28,baseheight-2.5,9))
 tableW33 = ode.GeomBox(space, (2,5,32))
 tableW33.setPosition((-28,baseheight-7.5,0))
 
 tableW41 = ode.GeomBox(space, (2,5,9))
-tableW41.setPosition((28,baseheight-2.5,-10.5))
+tableW41.setPosition((28,baseheight-2.5,-9))
 tableW42 = ode.GeomBox(space, (2,5,9))
-tableW42.setPosition((28,baseheight-2.5,10.5))
+tableW42.setPosition((28,baseheight-2.5,9))
 tableW43 = ode.GeomBox(space, (2,5,32))
 tableW43.setPosition((28,baseheight-7.5,0))
 
@@ -304,7 +304,10 @@ base.camera.setPos(0,20,-60)
 ### place LIGHTS ######################################################
 #default: no shading, full colours
 
-#not directional, but a lit ball somewhere above the stage
+#TODO: add some ambient lighting
+#nice to have: four spotlights and appropriate shadows, stadium style.
+
+##not directional, but a lit ball somewhere above the stage
 #sun  = PointLight('sun')
 #sunp = render.attachNewNode(sun)
 #sunp.setPos(20,25,10)
