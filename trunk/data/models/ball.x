@@ -3457,7 +3457,7 @@ Mesh {
     1.0;
     1.0; 1.0; 1.0;;
     0.0; 0.0; 0.0;;
-  TextureFilename {    "ball.png";  }
+  TextureFilename {    "data/textures/ball.png";  }
   }  // End of Material
     }  //End of MeshMaterialList
   MeshNormals {

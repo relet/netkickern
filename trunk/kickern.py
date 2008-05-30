@@ -289,11 +289,11 @@ def near_callback(args, geom1, geom2):
 ### place CAMERA ######################################################
 #default camera: top view
 
-base.camera.setHpr(0,25,0) #25deg angle sideways
-base.camera.setPos(0,0,-35)
+#base.camera.setHpr(0,25,0) #25deg angle sideways
+#base.camera.setPos(0,0,-35)
 
-#base.camera.setHpr(0,45,0) #45deg angle sideways
-#base.camera.setPos(0,20,-60)
+base.camera.setHpr(0,45,0) #45deg angle sideways
+base.camera.setPos(0,20,-60)
 
 #base.camera.setHpr(0,45,0) #45deg angle sideways, zoomed
 #base.camera.setPos(0,60,-20)
@@ -322,7 +322,6 @@ kicker2.setScale(.65,.65,.65)
 kicker2.setPos(3,79.5,0)
 
 table = loader.loadModel(DATAPATH+"models/table.x")
-#table = loader.loadModel(DATAPATH+"models/doof.x")
 table.reparentTo(render)
 table.setScale(4,4,4)
 table.setPos(0,82,0)
@@ -384,16 +383,16 @@ for i in range(3):
 
 texField = loader.loadTexture(DATAPATH+"textures/field2.png")
 field = table.find("**/Cube")
-field.setTexGen(TextureStage.getDefault(), TexGenAttrib.MWorldPosition)
-field.setTexTransform(TextureStage.getDefault(), TransformState.makeHpr(VBase3(0,90,0)))
-field.setTexPos(TextureStage.getDefault(), 0.5,0.5,0.5)
-field.setTexScale(TextureStage.getDefault(), 0.0185, 1, 0.034)
+#field.setTexGen(TextureStage.getDefault(), TexGenAttrib.MWorldPosition)
+#field.setTexTransform(TextureStage.getDefault(), TransformState.makeHpr(VBase3(0,90,0)))
+#field.setTexPos(TextureStage.getDefault(), 0.5,0.5,0.5)
+#field.setTexScale(TextureStage.getDefault(), 0.0185, 1, 0.034)
 field.setTexture(texField)
 
 field = table.setTransparency(1)
 
-texBall = loader.loadTexture(DATAPATH+"textures/ball.png")
-ball.setTexture(texBall)
+#texBall = loader.loadTexture(DATAPATH+"textures/ball.png")
+#ball.setTexture(texBall)
 
 texKicker = loader.loadTexture(DATAPATH+"textures/kicker_tex.png")
 texKicker2 = loader.loadTexture(DATAPATH+"textures/kicker2_tex.png")
