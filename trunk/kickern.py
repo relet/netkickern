@@ -304,19 +304,14 @@ base.camera.setPos(0,0,-35)
 
 ### LOAD and place MODELS #############################################
 
-if role==ROLE_SERVER:
-  kicker = loader.loadModel(DATAPATH+"models/kicker.x")
-  kicker2 = loader.loadModel(DATAPATH+"models/kicker2.x")
-else:
-  kicker = loader.loadModel(DATAPATH+"models/kicker2.x")
-  kicker2 = loader.loadModel(DATAPATH+"models/kicker.x")
+kicker = loader.loadModel(DATAPATH+"models/kicker.x")
+kicker2 = loader.loadModel(DATAPATH+"models/kicker.x") #FIXME: this could just as well be an instance
 
 kicker.setScale(.65,.65,.65)
 kicker.setPos(-3,79.5,0)
 
 kicker2.setScale(.65,.65,.65)
 kicker2.setPos(3,79.5,0)
-kicker2.setR(180)
 
 table = loader.loadModel(DATAPATH+"models/table.x")
 #table = loader.loadModel(DATAPATH+"models/doof.x")
@@ -390,6 +385,17 @@ field.setTexture(texField)
 texBall = loader.loadTexture(DATAPATH+"textures/ball.png")
 ball.setTexture(texBall)
 
+texKicker = loader.loadTexture(DATAPATH+"textures/kicker_tex.png")
+texKicker2 = loader.loadTexture(DATAPATH+"textures/kicker2_tex.png")
+
+if role == ROLE_SERVER:
+  kicker.setTexture(texKicker)
+  kicker2.setTexture(texKicker2)
+else:
+  kicker.setTexture(texKicker2)
+  kicker2.setTexture(texKicker)
+kicker.setR(180)
+  
 ### SET UP Mouse control #############################################
 base.disableMouse()
 
