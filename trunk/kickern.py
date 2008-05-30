@@ -307,11 +307,11 @@ base.camera.setPos(0,20,-60)
 #TODO: add some ambient lighting
 #nice to have: four spotlights and appropriate shadows, stadium style.
 
-##not directional, but a lit ball somewhere above the stage
-#sun  = PointLight('sun')
-#sunp = render.attachNewNode(sun)
-#sunp.setPos(20,25,10)
-#render.setLight(sunp)
+#not directional, but a lit ball somewhere above the stage
+sun  = PointLight('sun')
+sunp = render.attachNewNode(sun)
+sunp.setPos(20,25,10)
+render.setLight(sunp)
 
 ### LOAD and place MODELS #############################################
 
