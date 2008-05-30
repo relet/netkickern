@@ -387,6 +387,9 @@ field.setTexPos(TextureStage.getDefault(), 0.5,0.5,0.5)
 field.setTexScale(TextureStage.getDefault(), 0.018, 0.05, 0.03)
 field.setTexture(texField)
 
+texBall = loader.loadTexture(DATAPATH+"textures/ball.png")
+ball.setTexture(texBall)
+
 ### SET UP Mouse control #############################################
 base.disableMouse()
 
