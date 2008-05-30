@@ -18,7 +18,7 @@ PACKET_MOVE  = 5   # movement update client -> server
 PACKET_SET   = 6   # physics & movement update, server -> client
 
 MAGIC_WORD   = "kickern?"
-PROTOCOL_VERSION = 1  # to be increased with each protocol change
+PROTOCOL_VERSION = 2  # to be increased with each protocol change
 
 ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
@@ -30,7 +30,7 @@ import sys
 import time
 
 from random import random
-from math import sin, cos, pi
+from math import sin, cos, pi, atan2, sqrt
 
 from pandac.PandaModules import *
 from direct.distributed.PyDatagram import PyDatagram 
@@ -100,9 +100,9 @@ def myProcessDataFunction(datagram):
       now = time.time()
       deltatime = now-stime   # TODO: use this to delay mouse movements by deltatime/2
       print "network delay: "+str(deltatime*500)+"ms " #rtt/2
-  except:
-    print "Communication error."
-    sys.exit(1)
+  except Exception, e:
+    print e 
+    sys.exit(1) #wow, this is what I call exception handling.. 
   return
 
 role = ROLE_SERVER #strings are bulky but quick and readable.
@@ -436,8 +436,12 @@ def moveKickerTask(task):
       contactgroup.empty()
 
   px,py,pz = ballBody.getPosition()
-  ball.setPos(VBase3(px,py,pz))
-
+  rot      = ballBody.getRotation()
+  gquat    = Quat ()
+  gquat.setFromMatrix (Mat3 (*rot))
+  gpos     = VBase3 (px,py,pz)
+  ball.setPosQuat (gpos, gquat) 
+  
   oldx=mx
   oldy=my
   oldox = omx
@@ -528,8 +532,10 @@ def setKickers2(x,y):  #player2
 
 def sendGameStatus():
   px,py,pz = ballBody.getPosition()
-  vx,vy,vz = ballBody.getLinearVel()
-  rx,ry,rz = ballBody.getAngularVel()
+  prot     = ballBody.getRotation()
+
+#  vx,vy,vz = ballBody.getLinearVel()
+#  rx,ry,rz = ballBody.getAngularVel()
   
   r1,r2,r3,r4 = row1.getZ(), row2.getZ(), row3.getZ(), row4.getZ()
   o1,o2,o3,o4 = rrow1.getZ(), rrow2.getZ(), rrow3.getZ(), rrow4.getZ()
@@ -542,12 +548,14 @@ def sendGameStatus():
   status.addFloat64(px)
   status.addFloat64(py)
   status.addFloat64(pz)
-  status.addFloat64(vx)
-  status.addFloat64(vy)
-  status.addFloat64(vz)
-  status.addFloat64(rx)
-  status.addFloat64(ry)
-  status.addFloat64(rz)
+  for r in range(9): #just to be explicit
+    status.addFloat64(prot[i])
+#  status.addFloat64(vx)
+#  status.addFloat64(vy)
+#  status.addFloat64(vz)
+#  status.addFloat64(rx)
+#  status.addFloat64(ry)
+#  status.addFloat64(rz)
   
   status.addFloat64(r1)
   status.addFloat64(r2)
@@ -579,8 +587,15 @@ def sendScore(s1,s2):
 
 def setGameStatus(data):
   ballBody.setPosition((-data.getFloat64(),data.getFloat64(),-data.getFloat64()))
-  ballBody.setLinearVel((-data.getFloat64(),data.getFloat64(),-data.getFloat64()))
-  ballBody.setAngularVel((-data.getFloat64(),data.getFloat64(),-data.getFloat64()))
+  ballBody.setRotation((data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64())) #would we need to mirror this somehow? 
+  
+  px,py,pz = ballBody.getPosition() #FIXME: write this directly to ball, not ballBody. 
+  rot      = ballBody.getRotation() #there's no need for physics. 
+  gquat    = Quat ()
+  gquat.setFromMatrix (Mat3 (*rot))
+  gpos     = VBase3 (px,py,pz)
+  ball.setPosQuat (gpos, gquat) 
+  
   rrow1.setZ(-data.getFloat64())
   rrow2.setZ(-data.getFloat64())
   rrow3.setZ(-data.getFloat64())
@@ -592,6 +607,7 @@ def setGameStatus(data):
   row3.setZ(-data.getFloat64())
   row4.setZ(-data.getFloat64()) 
   kicker.setH(-data.getFloat64())
+  
   
 def setOpponentMove(data):
   global omx, omy
