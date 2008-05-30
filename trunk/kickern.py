@@ -1,5 +1,13 @@
 #!/usr/bin/env python
 
+print """
+  netkickern - Copyright (C) 2008 Thomas Hirsch
+  This program comes with ABSOLUTELY NO WARRANTY;
+  This is free software, and you are welcome to redistribute it under the
+  conditions of the GNU General Public Licence version 3 (GPLv3)
+  see: http://www.gnu.org/licenses/gpl-3.0.html
+"""
+
 DATAPATH="./data/" # where to find data files (.x models)
 PORT=5036          # default port to use for connections
 
@@ -381,6 +389,8 @@ field.setTexTransform(TextureStage.getDefault(), TransformState.makeHpr(VBase3(0
 field.setTexPos(TextureStage.getDefault(), 0.5,0.5,0.5)
 field.setTexScale(TextureStage.getDefault(), 0.0185, 1, 0.034)
 field.setTexture(texField)
+
+field = table.setTransparency(1)
 
 texBall = loader.loadTexture(DATAPATH+"textures/ball.png")
 ball.setTexture(texBall)
