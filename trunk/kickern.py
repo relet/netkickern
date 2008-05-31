@@ -239,25 +239,26 @@ baseheight = 82.4
 tableGeom.setPosition((0,baseheight,0))   #trial and error
 
 #side walls
-tableW1 = ode.GeomBox(space, (56,10,2))
-tableW1.setPosition((0,baseheight-5,15.8))
-tableW2 = ode.GeomBox(space, (56,10,2))
-tableW2.setPosition((0,baseheight-5,-15.8))
+wallGeom = []
+wallGeom.append( ode.GeomBox(space, (56,10,2)) )
+wallGeom[0].setPosition((0,baseheight-5,15.8))
+wallGeom.append( ode.GeomBox(space, (56,10,2)) )
+wallGeom[1].setPosition((0,baseheight-5,-15.8))
 
 #goalside walls
-tableW31 = ode.GeomBox(space, (2,5,9))
-tableW31.setPosition((-28,baseheight-2.5,-9))
-tableW32 = ode.GeomBox(space, (2,5,9))
-tableW32.setPosition((-28,baseheight-2.5,9))
-tableW33 = ode.GeomBox(space, (2,5,32))
-tableW33.setPosition((-28,baseheight-7.5,0))
+wallGeom.append( ode.GeomBox(space, (2,5,9)) )
+wallGeom[2].setPosition((-28,baseheight-2.5,-9))
+wallGeom.append( ode.GeomBox(space, (2,5,9)) )
+wallGeom[3].setPosition((-28,baseheight-2.5,9))
+wallGeom.append( ode.GeomBox(space, (2,5,32)) )
+wallGeom[4].setPosition((-28,baseheight-7.5,0))
 
-tableW41 = ode.GeomBox(space, (2,5,9))
-tableW41.setPosition((28,baseheight-2.5,-9))
-tableW42 = ode.GeomBox(space, (2,5,9))
-tableW42.setPosition((28,baseheight-2.5,9))
-tableW43 = ode.GeomBox(space, (2,5,32))
-tableW43.setPosition((28,baseheight-7.5,0))
+wallGeom.append( ode.GeomBox(space, (2,5,9)) )
+wallGeom[5].setPosition((28,baseheight-2.5,-9))
+wallGeom.append( ode.GeomBox(space, (2,5,9)) )
+wallGeom[6].setPosition((28,baseheight-2.5,9))
+wallGeom.append( ode.GeomBox(space, (2,5,32)) )
+wallGeom[7].setPosition((28,baseheight-7.5,0))
 
 ## define kickers
 kickerGeom = []
@@ -277,12 +278,18 @@ def near_callback(args, geom1, geom2):
   contacts=ode.collide(geom1, geom2)
   world, contactgroup = args
   for c in contacts:
-    if (geom1 in kickerGeom) or (geom1 == tableGeom):
-      c.setMu(500000)   #kickers have high friction, little bounce - FIXME: does not work. you still can't stop balls
-      c.setBounce(0) 
-    else:
-      c.setMu(1)      #walls have bounce, minimal friction
-      c.setBounce(2.5) 
+    if (geom1 in kickerGeom) or (geom2 in kickerGeom) or (geom1 in kickerGeom2) or (geom2 in kickerGeom2):
+      c.setMu(5E6)   #kickers have high friction, minimal bounce - FIXME: does not work. you still can't stop balls
+      c.setBounce(1) 
+    elif (geom1 == tableGeom) or (geom2 == tableGeom): 
+      c.setMu(10)    #table has little bounce, noticeable friction
+      c.setBounce(1.5) 
+    elif (geom1 in wallGeom) or (geom2 in wallGeom):
+      c.setMu(1)      #walls have ok bounce, noticeable friction
+      c.setBounce(3)
+    else:             #ignore anything else. I have no idea what that could be
+      print "something undetected collided with my balls. ouch."
+      continue 
     j=ode.ContactJoint(world, contactgroup, c)
     j.attach(geom1.getBody(), geom2.getBody())
 
@@ -315,14 +322,21 @@ render.setLight(sunp)
 
 ### LOAD and place MODELS #############################################
 
-kicker = loader.loadModel(DATAPATH+"models/kicker.x")
+kicker  = loader.loadModel(DATAPATH+"models/kicker.x")
 kicker2 = loader.loadModel(DATAPATH+"models/kicker.x") #FIXME: this could just as well be an instance
 
+handle  = loader.loadModel(DATAPATH+"models/handle.x")
+blocker = loader.loadModel(DATAPATH+"models/blocker.x")
+handle.setPos(0,80,0)
+handle.setScale(1,1,.7)
+blocker.setPos(0,80,0)
+blocker.setScale(.8,.8,1)
+
 kicker.setScale(.65,.65,.65)
-kicker.setPos(-3,79.5,0)
+kicker.setPos(0,79.5,0)
 
 kicker2.setScale(.65,.65,.65)
-kicker2.setPos(3,79.5,0)
+kicker2.setPos(0,79.5,0)
 
 table = loader.loadModel(DATAPATH+"models/table.x")
 table.reparentTo(render)
@@ -347,40 +361,83 @@ rrow3 = render.attachNewNode("rdrow3")
 rrow4 = render.attachNewNode("rrow4")
 
 kickstance = row1.attachNewNode("k1")
-kickstance.setPos(-20,0,0)
+kickstance.setPos(-23,0,0)
 kicker.instanceTo(kickstance)
+handle1 = row1.attachNewNode("h1")
+handle1.setPos(-23,0,0)
+handle.instanceTo(handle1)
+block11 = row1.attachNewNode("b1")
+block11.setPos(-23,0,5.7)
+blocker.instanceTo(block11)
+block12 = row1.attachNewNode("b2")
+block12.setPos(-23,0,-5.7)
+blocker.instanceTo(block12)
+
 for i in range(2):
   kickstance = row2.attachNewNode("k2")
-  kickstance.setPos(-13.33,0,i*12-6)
+  kickstance.setPos(-16.33,0,i*12-6)
   kicker.instanceTo(kickstance)
+handle2 = row2.attachNewNode("h2")
+handle2.setPos(-16.33,0,0)
+handle.instanceTo(handle2)
 
 for i in range(5):
   kickstance = row3.attachNewNode("k3")
-  kickstance.setPos(-1,0,i*5.5-11)
+  kickstance.setPos(-4,0,i*5.5-11)
   kicker.instanceTo(kickstance)
+handle3 = row3.attachNewNode("h2")
+handle3.setPos(-4,0,0)
+handle.instanceTo(handle3)
 
 for i in range(3):
   kickstance = row4.attachNewNode("k4")
-  kickstance.setPos(13.33,0,i*8-8)
+  kickstance.setPos(10.33,0,i*8-8)
   kicker.instanceTo(kickstance)
+handle4 = row4.attachNewNode("h2")
+handle4.setPos(10.33,0,0)
+handle.instanceTo(handle4)
 
 kickstance = rrow1.attachNewNode("rk1")
-kickstance.setPos(20,0,0)
+kickstance.setPos(23,0,0)
 kicker2.instanceTo(kickstance)
+handle5 = rrow1.attachNewNode("h5")
+handle5.setPos(23,0,0)
+handle5.setR(180)
+handle.instanceTo(handle5)
+block21 = rrow1.attachNewNode("b1")
+block21.setPos(23,0,5.7)
+blocker.instanceTo(block21)
+block22 = rrow1.attachNewNode("b2")
+block22.setPos(23,0,-5.7)
+blocker.instanceTo(block22)
+
+
 for i in range(2):
   kickstance = rrow2.attachNewNode("rk2")
-  kickstance.setPos(13.33,0,i*12-6)
+  kickstance.setPos(16.33,0,i*12-6)
   kicker2.instanceTo(kickstance)
+handle6 = rrow2.attachNewNode("h6")
+handle6.setPos(16.33,0,0)
+handle6.setR(180)
+handle.instanceTo(handle6)
 
 for i in range(5):
   kickstance = rrow3.attachNewNode("rk3")
-  kickstance.setPos(1,0,i*5.5-11)
+  kickstance.setPos(4,0,i*5.5-11)
   kicker2.instanceTo(kickstance)
+handle7 = rrow3.attachNewNode("h8")
+handle7.setPos(4,0,0)
+handle7.setR(180)
+handle.instanceTo(handle7)
 
 for i in range(3):
   kickstance = rrow4.attachNewNode("rk4")
-  kickstance.setPos(-13.33,0,i*8-8)
+  kickstance.setPos(-10.33,0,i*8-8)
   kicker2.instanceTo(kickstance)
+handle8 = rrow3.attachNewNode("h8")
+handle8.setPos(-10.33,0,0)
+handle8.setR(180)
+handle.instanceTo(handle8)
 
 ### Load and apply textures ############################################
 
@@ -390,8 +447,10 @@ field.setTexture(texField)
 
 table.setTransparency(1)
 
-#texBall = loader.loadTexture(DATAPATH+"textures/ball.png")
-#ball.setTexture(texBall)
+texBande = loader.loadTexture(DATAPATH+"textures/bande_tex.png")
+table.find("**/Cube_001").setTexture(texBande)
+table.find("**/Cube_002").setTexture(texBande)
+table.find("**/Cube_005").setTexture(texBande)
 
 texKicker = loader.loadTexture(DATAPATH+"textures/kicker_tex.png")
 texKicker2 = loader.loadTexture(DATAPATH+"textures/kicker2_tex.png")
@@ -450,7 +509,7 @@ def moveKickerTask(task):
       contactgroup.empty()
 
   px,py,pz = ballBody.getPosition()
-  rot      = ballBody.getRotation()
+  rot      = ballBody.getRotation() 
   gquat    = Quat ()
   gquat.setFromMatrix (Mat3 (*rot))
   gpos     = VBase3 (px,py,pz)
