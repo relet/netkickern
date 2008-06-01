@@ -13,8 +13,9 @@ PORT=5036          # default port to use for connections
 
 STEPS = 10         #each mouse movement is divided into STEPS steps, to keep physics changes smooth. 10 is good for solo use
 
-P1NAME = "NET"     #the server, currently.
-P2NAME = "MOTION"  #the client, currently.
+TEAMNAME = None
+P1NAME = "PLAYER1"     #the server, currently.
+P2NAME = "PLAYER2"     #the client, currently.
 
 #list of used packet types
 PACKET_HELLO = 0   # identification using magic word
@@ -25,17 +26,27 @@ PACKET_START = 4   # start game notification
 PACKET_MOVE  = 5   # movement update client -> server
 PACKET_SET   = 6   # physics & movement update, server -> client
 
+PACKET_QPREF = 10  # query for client preferences
+PACKET_PREF  = 11  # query for client preferences
+PACKET_ROLE  = 12  # assign a client role
+PACKET_NAME  = 13  # name a team
+
 MAGIC_WORD   = "kickern?"
-PROTOCOL_VERSION = 2  # to be increased with each protocol change
+PROTOCOL_VERSION = 3  # to be increased with each protocol change
 
 ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
+
+STATUS_CONF  = 0
+STATUS_INIT  = 1
+STATUS_LIVE  = 2
 
 ### IMPORTS ###########################################################
 
 import ode
 import sys
 import time
+import os
 
 from random import random
 from math import sin, cos, pi, atan2, sqrt
@@ -43,9 +54,22 @@ from math import sin, cos, pi, atan2, sqrt
 from pandac.PandaModules import *
 from direct.distributed.PyDatagram import PyDatagram 
 from direct.distributed.PyDatagramIterator import PyDatagramIterator 
+
+from ConfigParser import ConfigParser
 #more imports after network setup!
 
-### Define network role ###############################################
+### Read configuration parameters #####################################
+
+status = STATUS_CONF
+
+try:
+  config = ConfigParser()
+  config.read(['kickern.conf', 'kickern.ini'])
+  TEAMNAME = config.get('team','name')
+except:
+  pass
+
+### Network handling functions#########################################
 def startGame():
   taskMgr.add(moveKickerTask, "gameTask");
   if role==ROLE_SERVER:
@@ -70,49 +94,79 @@ def pingTask(task):
   return Task.cont
 
 def myProcessDataFunction(datagram):
+  global status, P1NAME, P2NAME
+
   data = PyDatagramIterator(datagram)
   try: 
     pktType = data.getUint16()
-    if pktType==PACKET_SET:
-      setGameStatus(data)
-    elif pktType==PACKET_SCORE:
-      setScore(data)
-    elif pktType==PACKET_MOVE:
-      setOpponentMove(data)
-    elif pktType==PACKET_HELLO:
-      magic = data.getString()
-      proto = data.getUint16()
-      if magic != MAGIC_WORD:
-        print "Connecting party did not identify as netkickern client."
-        sys.exit(1)
-      if proto != PROTOCOL_VERSION:
-        print "Connecting party used incompatible protocol version "+str(proto)+"."
-        print "We are using "+str(PROTOCOL_VERSION)+"."
-        sys.exit(1)
-      print "Ok, client connected."
-      welcome = PyDatagram()
-      welcome.addUint16(PACKET_START)
-      cWriter.send(welcome, myConnection)
-      startGame()
-    elif pktType==PACKET_START:
-      print "connection to game host confirmed."
-      startGame()
-    elif pktType==PACKET_PING:
-      stime = data.getFloat64()
-      pong = PyDatagram()
-      pong.addUint16(PACKET_PONG)
-      pong.addFloat64(stime)
-      cWriter.send(pong, myConnection)
-    elif pktType==PACKET_PONG:
-      stime = data.getFloat64()
-      now = time.time()
-      deltatime = now-stime   # TODO: use this to delay mouse movements by deltatime/2
-      print "network delay: "+str(deltatime*500)+"ms " #rtt/2
+    if role==ROLE_SERVER: # packets received only by server
+      if pktType==PACKET_MOVE:
+        setOpponentMove(data)
+      elif pktType==PACKET_HELLO:
+        magic = data.getString()
+        proto = data.getUint16()
+        if magic != MAGIC_WORD:
+          print "Connecting party did not identify as netkickern client."
+          sys.exit(1)
+        if proto != PROTOCOL_VERSION:
+          print "Connecting party used incompatible protocol version "+str(proto)+"."
+          print "We are using "+str(PROTOCOL_VERSION)+"."
+          sys.exit(1)
+        print "Ok, client connected."
+        status = STATUS_INIT
+        qpref = PyDatagram() #query for client preferences
+        qpref.addUint16(PACKET_QPREF)
+        cWriter.send(qpref, myConnection)
+      elif pktType==PACKET_PREF:
+        if status != STATUS_INIT:
+          return
+        teamname = data.getString()
+        P2NAME = teamname
+        resetNames()
+        rename = PyDatagram() # confirm renaming of P2 
+        rename.addUint16(PACKET_NAME)
+        rename.addString(P1NAME) 
+        rename.addString(P2NAME) 
+        cWriter.send(rename, myConnection)
+        welcome = PyDatagram()
+        welcome.addUint16(PACKET_START)
+        cWriter.send(welcome, myConnection)
+        startGame()
+      elif pktType==PACKET_PONG:
+        stime = data.getFloat64()
+        now = time.time()
+        deltatime = now-stime   # TODO: use this to delay mouse movements by deltatime/2
+        print "network delay: "+str(deltatime*500)+"ms " #rtt/2
+    else: # packets received only by clients
+      if pktType==PACKET_SET:
+        setGameStatus(data)
+      elif pktType==PACKET_SCORE:
+        setScore(data)
+      elif pktType==PACKET_QPREF:
+        status = STATUS_INIT
+        pref = PyDatagram()
+        pref.addUint16(PACKET_PREF)
+        pref.addString(TEAMNAME)
+        cWriter.send(pref, myConnection)     
+      elif pktType==PACKET_START:
+        print "connection to game host confirmed."
+        startGame()
+      elif pktType==PACKET_NAME:
+        P1NAME = data.getString()
+        P2NAME = data.getString()
+        resetNames()
+      elif pktType==PACKET_PING:
+        stime = data.getFloat64()
+        pong = PyDatagram()
+        pong.addUint16(PACKET_PONG)
+        pong.addFloat64(stime)
+        cWriter.send(pong, myConnection)
   except Exception, e:
     print e 
     sys.exit(1) #wow, this is what I call exception handling.. 
   return
 
+### Define network role ###############################################
 role = ROLE_SERVER #strings are bulky but quick and readable.
 if len(sys.argv)>1:
   role   = ROLE_CLIENT
@@ -124,6 +178,10 @@ cReader  = QueuedConnectionReader(cManager, 0)
 cWriter  = ConnectionWriter(cManager,0)
 
 if role == ROLE_SERVER:
+  if TEAMNAME is None:
+    TEAMNAME=P1NAME
+  else:
+    P1NAME=TEAMNAME
   cListener = QueuedConnectionListener(cManager, 0)
   activeConnections=[] # We'll want to keep track of these later
   tcpSocket = cManager.openTCPServerRendezvous(PORT,1000)
@@ -149,6 +207,8 @@ if role == ROLE_SERVER:
     cReader.addConnection(myConnection)    # Begin reading connection
 
 else: 
+  if not TEAMNAME:
+    TEAMNAME=P2NAME
   myConnection=cManager.openTCPClientConnection(server,PORT,3000)
   if myConnection:
     cReader.addConnection(myConnection)    # receive messages from server
@@ -185,17 +245,21 @@ textNodePath.setPos(VBase3(0,0,.88))
 
 p1score = 0
 score1 = TextNode('t1score')
-score1.setText(P1NAME+" 0")
 textFormat(score1)
 textNodePath1 = aspect2d.attachNewNode(score1)
 textNodePath1.setScale(0.10)
 
 p2score = 0
 score2 = TextNode('t2score')
-score2.setText(P2NAME+" 0")
 textFormat(score2)
 textNodePath2 = aspect2d.attachNewNode(score2)
 textNodePath2.setScale(0.10)
+
+def resetNames():
+  score1.setText(P1NAME+"  "+str(p1score))
+  score2.setText(P2NAME+"  "+str(p2score))
+
+resetNames()
 
 if role==ROLE_SERVER:
   score1.setAlign(TextNode.ALeft)
@@ -279,7 +343,7 @@ def near_callback(args, geom1, geom2):
   world, contactgroup = args
   for c in contacts:
     if (geom1 in kickerGeom) or (geom2 in kickerGeom) or (geom1 in kickerGeom2) or (geom2 in kickerGeom2):
-      c.setMu(5E6)   #kickers have high friction, minimal bounce - FIXME: does not work. you still can't stop balls
+      c.setMu(5E10)   #kickers have high friction, minimal bounce - FIXME: does not work. you still can't stop balls
       c.setBounce(1) 
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
       c.setMu(10)    #table has little bounce, noticeable friction
