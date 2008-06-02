@@ -33,7 +33,7 @@ PACKET_NAME  = 13  # name a team
 
 MAGIC_WORD   = "kickern?"
 PROTOCOL_VERSION = 4                 # to be increased with each protocol change
-SOFTWARE_VERSION = '$Revision$' # automatically set by subversion on commit
+SOFTWARE_VERSION = '$Revision$' # automatically set by subversion on checkout
 
 ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
@@ -56,6 +56,12 @@ import os
 
 from random import random
 from math import sin, cos, pi, atan2, sqrt
+
+def sgn(x):
+  if x==0:
+    return 0
+  else:
+    return x/abs(x)
 
 from pandac.PandaModules import *
 from direct.distributed.PyDatagram import PyDatagram 
@@ -605,14 +611,16 @@ def moveKickerTask(task):
 
   ### CHECK FOR GOALS / OUTS ###############
   if (px<-28) or (px>28):
-    if (px<-28):
-      p2score = p2score+1
-      score2.setText(P2NAME+" "+str(p2score))
-    else:
-      p1score = p1score+1
-      score1.setText(P1NAME+" "+str(p1score))
-    sendScore(p1score, p2score)
-    ballBody.setPosition((0,80,0))
+    if (py>75): #under the bar
+      if (px<-28):
+        p2score = p2score+1
+        score2.setText(P2NAME+" "+str(p2score))
+      else:
+        p1score = p1score+1
+        score1.setText(P1NAME+" "+str(p1score))
+      sendScore(p1score, p2score)
+    ballBody.setPosition((sgn(px)*3,75,0)) #on the side the ball went out
+    ballBody.setLinearVel((0,0,0))
 
   if role == ROLE_SERVER:
     sendGameStatus()
