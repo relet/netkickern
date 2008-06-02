@@ -38,6 +38,8 @@ SOFTWARE_VERSION = '$Revision$' # automatically set by subversion on checkout
 ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
 
+trainingMode = False
+
 STATUS_CONF  = 0
 STATUS_INIT  = 1
 STATUS_LIVE  = 2
@@ -196,6 +198,8 @@ cManager = QueuedConnectionManager()
 cReader  = QueuedConnectionReader(cManager, 0)
 cWriter  = ConnectionWriter(cManager,0)
 
+myConnection = False
+
 if role == ROLE_SERVER:
   if TEAMNAME is None:
     TEAMNAME=P1NAME
@@ -206,24 +210,26 @@ if role == ROLE_SERVER:
   tcpSocket = cManager.openTCPServerRendezvous(PORT,1000)
   cListener.addConnection(tcpSocket)
 
-  print "================================"
-  print "waiting for opponent to connect."
-  print "================================"
+  print "=================================="
+  print "waiting for opponent to connect.  "
+  print "or press Ctrl+C to enter training."
+  print "=================================="
   try:
     while not cListener.newConnectionAvailable():
       time.sleep(0.1)
+    rendezvous = PointerToConnection()
+    netAddress = NetAddress()
+    myConnection = PointerToConnection()
+
+    if cListener.getNewConnection(rendezvous,netAddress,myConnection):
+      myConnection = myConnection.p()
+      activeConnections.append(myConnection) # Remember connection
+      cReader.addConnection(myConnection)    # Begin reading connection
   except KeyboardInterrupt:
-    print "aborted."
+    print "aborted. Switching to single player (training) mode."
+    trainingMode = True
     #sys.exit(1)
 
-  rendezvous = PointerToConnection()
-  netAddress = NetAddress()
-  myConnection = PointerToConnection()
-
-  if cListener.getNewConnection(rendezvous,netAddress,myConnection):
-    myConnection = myConnection.p()
-    activeConnections.append(myConnection) # Remember connection
-    cReader.addConnection(myConnection)    # Begin reading connection
 
 else: 
   if not TEAMNAME:
@@ -238,9 +244,9 @@ else:
     welcome.addString(SOFTWARE_VERSION) 
     cWriter.send(welcome, myConnection)
 
-if not myConnection:
-  print "connection failed."
-  sys.exit(1)
+  if not myConnection:
+    print "connection failed."
+    sys.exit(1)
 
 ### Post-networking imports ############################################
 # (to prevent Panda3D from opening windows before network setup ########
@@ -293,8 +299,8 @@ else:
   textNodePath2.setPos(VBase3(-1,0,.75))
 
 base.setFrameRateMeter(True)
-taskMgr.add(tskReaderPolling,"Poll the connection reader",-40)
-
+if not trainingMode:
+  taskMgr.add(tskReaderPolling,"Poll the connection reader",-40)
 
 ### Setup pyODE ########################################################
 world = ode.World()
@@ -363,14 +369,14 @@ def near_callback(args, geom1, geom2):
   world, contactgroup = args
   for c in contacts:
     if (geom1 in kickerGeom) or (geom2 in kickerGeom) or (geom1 in kickerGeom2) or (geom2 in kickerGeom2):
-      c.setMu(5E10)   #kickers have high friction, minimal bounce - FIXME: does not work. you still can't stop balls
+      c.setMu(1E5)   #kickers have high friction, minimal bounce - FIXME: does not work. you still can't stop balls
       c.setBounce(1) 
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
       c.setMu(10)    #table has little bounce, noticeable friction
       c.setBounce(1.5) 
     elif (geom1 in wallGeom) or (geom2 in wallGeom):
       c.setMu(1)      #walls have ok bounce, noticeable friction
-      c.setBounce(3)
+      c.setBounce(2)
     else:             #ignore anything else. I have no idea what that could be
       print "something undetected collided with my balls. ouch."
       continue 
@@ -622,7 +628,7 @@ def moveKickerTask(task):
     ballBody.setPosition((sgn(px)*3,75,0)) #on the side the ball went out
     ballBody.setLinearVel((0,0,0))
 
-  if role == ROLE_SERVER:
+  if role == ROLE_SERVER and not trainingMode:
     sendGameStatus()
 
   return Task.cont
@@ -786,8 +792,10 @@ def setScore(data):
   score2.setText(P2NAME+" "+str(p2score))
   
 ### RUN the game engine #########################################
+# unless in training mode, this won't run the main game loop yet! (physics + mouse handling)
+# this is only done when a PACKET_START is received, or the server is ready to start
+if trainingMode: 
+  startGame()
 run()
-# this won't run the main game loop yet! (physics + mouse handling)
-# this is only done when a PACKET_START is received, or the server
-# is ready to start
+
 
