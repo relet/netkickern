@@ -32,7 +32,8 @@ PACKET_ROLE  = 12  # assign a client role
 PACKET_NAME  = 13  # name a team
 
 MAGIC_WORD   = "kickern?"
-PROTOCOL_VERSION = 3  # to be increased with each protocol change
+PROTOCOL_VERSION = 3            # to be increased with each protocol change
+SVN_VERSION      = '$Revision$' # automatically set by subversion on commit
 
 ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
@@ -40,6 +41,11 @@ ROLE_CLIENT  = 2
 STATUS_CONF  = 0
 STATUS_INIT  = 1
 STATUS_LIVE  = 2
+
+print "Debug information:"
+print "  You are using software revision "+SVN_VERSION
+print "  This software uses network protocol version "+str(PROTOCOL_VERSION)
+print ""
 
 ### IMPORTS ###########################################################
 
@@ -506,26 +512,31 @@ handle.instanceTo(handle8)
 ### Load and apply textures ############################################
 
 texField = loader.loadTexture(DATAPATH+"textures/field2.png")
-field = table.find("**/Cube")
-field.setTexture(texField)
-
-table.setTransparency(1)
-
 texBande = loader.loadTexture(DATAPATH+"textures/bande_tex.png")
-table.find("**/Cube_001").setTexture(texBande)
-table.find("**/Cube_002").setTexture(texBande)
-table.find("**/Cube_005").setTexture(texBande)
-
 texKicker = loader.loadTexture(DATAPATH+"textures/kicker_tex.png")
 texKicker2 = loader.loadTexture(DATAPATH+"textures/kicker2_tex.png")
 
-if role == ROLE_SERVER:
-  kicker.setTexture(texKicker)
-  kicker2.setTexture(texKicker2)
-else:
-  kicker.setTexture(texKicker2)
-  kicker2.setTexture(texKicker)
-kicker.setR(180)
+table.setTransparency(1)
+try: 
+  field = table.find("**/Cube")
+  field.setTexture(texField)
+
+  table.find("**/Cube_001").setTexture(texBande)
+  table.find("**/Cube_002").setTexture(texBande)
+  table.find("**/Cube_005").setTexture(texBande)
+
+  if role == ROLE_SERVER:
+    kicker.setTexture(texKicker)
+    kicker2.setTexture(texKicker2)
+  else:
+    kicker.setTexture(texKicker2)
+    kicker2.setTexture(texKicker)
+  kicker.setR(180)
+except Exception, e:
+  print texBande #good for some DEBUG output
+  print e
+  #no textures then it shall be.
+  pass
   
 ### SET UP Mouse control #############################################
 base.disableMouse()
