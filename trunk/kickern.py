@@ -32,8 +32,8 @@ PACKET_ROLE  = 12  # assign a client role
 PACKET_NAME  = 13  # name a team
 
 MAGIC_WORD   = "kickern?"
-PROTOCOL_VERSION = 3            # to be increased with each protocol change
-SVN_VERSION      = '$Revision$' # automatically set by subversion on commit
+PROTOCOL_VERSION = 4                 # to be increased with each protocol change
+SOFTWARE_VERSION = '$Revision$' # automatically set by subversion on commit
 
 ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
@@ -43,7 +43,7 @@ STATUS_INIT  = 1
 STATUS_LIVE  = 2
 
 print "Debug information:"
-print "  You are using software revision "+SVN_VERSION
+print "  You are using software revision "+SOFTWARE_VERSION
 print "  This software uses network protocol version "+str(PROTOCOL_VERSION)
 print ""
 
@@ -111,6 +111,7 @@ def myProcessDataFunction(datagram):
       elif pktType==PACKET_HELLO:
         magic = data.getString()
         proto = data.getUint16()
+        soft  = data.getString()
         if magic != MAGIC_WORD:
           print "Connecting party did not identify as netkickern client."
           sys.exit(1)
@@ -118,10 +119,13 @@ def myProcessDataFunction(datagram):
           print "Connecting party used incompatible protocol version "+str(proto)+"."
           print "We are using "+str(PROTOCOL_VERSION)+"."
           sys.exit(1)
+        if soft != SOFTWARE_VERSION:
+          print "WARNING: Client is using software "+soft+"."
         print "Ok, client connected."
         status = STATUS_INIT
         qpref = PyDatagram() #query for client preferences
         qpref.addUint16(PACKET_QPREF)
+        qpref.addString(SOFTWARE_VERSION)
         cWriter.send(qpref, myConnection)
       elif pktType==PACKET_PREF:
         if status != STATUS_INIT:
@@ -149,6 +153,9 @@ def myProcessDataFunction(datagram):
       elif pktType==PACKET_SCORE:
         setScore(data)
       elif pktType==PACKET_QPREF:
+        soft = data.getString()
+        if soft != SOFTWARE_VERSION:
+          print "WARNING: Server is using software "+soft+"."
         status = STATUS_INIT
         pref = PyDatagram()
         pref.addUint16(PACKET_PREF)
@@ -222,6 +229,7 @@ else:
     welcome.addUint16(PACKET_HELLO)
     welcome.addString(MAGIC_WORD)          # the magic word to initiate a game.
     welcome.addUint16(PROTOCOL_VERSION) 
+    welcome.addString(SOFTWARE_VERSION) 
     cWriter.send(welcome, myConnection)
 
 if not myConnection:
