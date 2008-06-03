@@ -9,7 +9,7 @@ print """
 """
 
 DATAPATH="./data/" # where to find data files (.x models)
-PORT=5037          # default port to use for connections
+PORT=5036          # default port to use for connections
 
 STEPS = 10         #each mouse movement is divided into STEPS steps, to keep physics changes smooth. 10 is good for solo use
 
@@ -378,18 +378,21 @@ def near_callback(args, geom1, geom2):
       if (geom1 in kickerGeom and geom2 in kickerGeom2) or (geom1 in kickerGeom2 and geom2 in kickerGeom2):
         pass
       else:
+        bx, by, bz = ballBody.getPosition()
+        ax, ay, az = ballBody.getLinearVel()
+        px, py, pz = c.getContactGeomParams()[0]
         if geom1 in kickerGeom or geom2 in kickerGeom:
           angle = kicker.getH()
           if ((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90)):
             BLOCK1 = True
             ballBody.setLinearVel((0,0,0))
-            continue
+            #continue
         else:
           angle = kicker2.getH()
           if ((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90)):
             BLOCK2 = True
             ballBody.setLinearVel((0,0,0))
-            continue
+            #continue
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
       c.setMu(10)    #table has little bounce, noticeable friction
       c.setBounce(1.5) 
@@ -713,14 +716,16 @@ def moveKickerTask(task):
       space.collide((world, contactgroup), near_callback)
       world.step(dt/10)
       contactgroup.empty()
-      
-      if not BLOCK1 and not BLOCK2:
-        blockx1 = blockx2 = x
+
       if BLOCK1:
         setKickers1(blockx1,y)
+      else:
+        blockx1 = x
       if BLOCK2:
         setKickers2(blockx2,y2)
-        
+      else:
+        blockx2 = x2
+
   px,py,pz = ballBody.getPosition()
   rot      = ballBody.getRotation() 
   gquat    = Quat ()
