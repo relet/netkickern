@@ -9,7 +9,7 @@ print """
 """
 
 DATAPATH="./data/" # where to find data files (.x models)
-PORT=5036          # default port to use for connections
+PORT=5037          # default port to use for connections
 
 STEPS = 10         #each mouse movement is divided into STEPS steps, to keep physics changes smooth. 10 is good for solo use
 
@@ -32,8 +32,8 @@ PACKET_ROLE  = 12  # assign a client role
 PACKET_NAME  = 13  # name a team
 
 MAGIC_WORD   = "kickern?"
-PROTOCOL_VERSION = 4                 # to be increased with each protocol change
-SOFTWARE_VERSION = '$Revision$' # automatically set by subversion on checkout
+PROTOCOL_VERSION = 4                        # to be increased with each protocol change
+SOFTWARE_VERSION = '$Revision$'[11:-2] # automatically set by subversion on checkout
 
 ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
@@ -86,7 +86,7 @@ except:
 ### Network handling functions#########################################
 def startGame():
   taskMgr.add(moveKickerTask, "gameTask");
-  if role==ROLE_SERVER:
+  if role==ROLE_SERVER and not trainingMode:
     taskMgr.add(pingTask, "pingTask"); # not needed, currently. enable to determine rtt (deltatime)
    
 def tskReaderPolling(taskdata):
@@ -317,7 +317,7 @@ ballBody.setMass(ballMass)
 ballGeom = ode.GeomSphere(space, radius=0.8)
 ballGeom.setBody(ballBody)
 # place ball
-ballBody.setPosition((-3,60,0))
+ballBody.setPosition((-3,75,0))
 
 ## define table
 #tableGeom = ode.GeomBox(space, (28,8,8)) #theoretical extents
@@ -364,13 +364,32 @@ for i in range(11):
                                                                      # y position still has to be off-centered
   kickerGeom2[i].setPosition((10,KV,10)) #just some random position. should be reassigned by mouse movement asap.
 
+BLOCK1 = False
+BLOCK2 = False
+
 def near_callback(args, geom1, geom2):
+  global BLOCK1, BLOCK2, kicker, kicker2
   contacts=ode.collide(geom1, geom2)
   world, contactgroup = args
   for c in contacts:
     if (geom1 in kickerGeom) or (geom2 in kickerGeom) or (geom1 in kickerGeom2) or (geom2 in kickerGeom2):
-      c.setMu(1E5)   #kickers have high friction, minimal bounce - FIXME: does not work. you still can't stop balls
+      c.setMu(1E5)     #kickers have high friction, minimal bounce - FIXME: does not work. you still can't stop balls
       c.setBounce(1) 
+      if (geom1 in kickerGeom and geom2 in kickerGeom2) or (geom1 in kickerGeom2 and geom2 in kickerGeom2):
+        pass
+      else:
+        if geom1 in kickerGeom or geom2 in kickerGeom:
+          angle = kicker.getH()
+          if ((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90)):
+            BLOCK1 = True
+            ballBody.setLinearVel((0,0,0))
+            continue
+        else:
+          angle = kicker2.getH()
+          if ((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90)):
+            BLOCK2 = True
+            ballBody.setLinearVel((0,0,0))
+            continue
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
       c.setMu(10)    #table has little bounce, noticeable friction
       c.setBounce(1.5) 
@@ -570,69 +589,6 @@ omy =0
 oldox=0
 oldoy=0
 
-def moveKickerTask(task):
-  global oldx, oldy, omx, omy, oldox, oldoy, p1score, p2score
-  if base.mouseWatcherNode.hasMouse():
-    mx=base.mouseWatcherNode.getMouseX()
-    my=base.mouseWatcherNode.getMouseY()  
-  else:
-    mx=oldx
-    my=oldy
-    
-  if role == ROLE_CLIENT:
-    sendMove(mx, my)
-
-  if role == ROLE_SERVER:
-    if task.frame==0:
-      dt = task.time
-    else:
-      dt = task.time/task.frame * 2 # this is a global average. TODO: change to sliding window
-    if dt==0: 
-      dt = 0.01
-  
-    for i in range(STEPS):
-      x = (mx * i + oldx * (STEPS-i)) / STEPS
-      y = (my * i + oldy * (STEPS-i)) / STEPS
-      x2 = (omx * i + oldox * (STEPS-i)) / STEPS
-      y2 = (omy * i + oldoy * (STEPS-i)) / STEPS
-
-      setKickers1(x,y)
-      setKickers2(x2,y2)
-    
-      space.collide((world, contactgroup), near_callback)
-      world.step(dt/10)
-      contactgroup.empty()
-
-  px,py,pz = ballBody.getPosition()
-  rot      = ballBody.getRotation() 
-  gquat    = Quat ()
-  gquat.setFromMatrix (Mat3 (*rot))
-  gpos     = VBase3 (px,py,pz)
-  ball.setPosQuat (gpos, gquat) 
-  
-  oldx=mx
-  oldy=my
-  oldox = omx
-  oldoy = omy
-
-  ### CHECK FOR GOALS / OUTS ###############
-  if (px<-28) or (px>28):
-    if (py>75): #under the bar
-      if (px<-28):
-        p2score = p2score+1
-        score2.setText(P2NAME+" "+str(p2score))
-      else:
-        p1score = p1score+1
-        score1.setText(P1NAME+" "+str(p1score))
-      sendScore(p1score, p2score)
-    ballBody.setPosition((sgn(px)*3,75,0)) #on the side the ball went out
-    ballBody.setLinearVel((0,0,0))
-
-  if role == ROLE_SERVER and not trainingMode:
-    sendGameStatus()
-
-  return Task.cont
-
 def setKickers1(x,y):  #player1
   kickerZ1 = min(7.9, max(-7.9, y*10))
   kickerZ2 = min(7.9, max(-7.9, y*10))
@@ -699,6 +655,89 @@ def setKickers2(x,y):  #player2
   cosa = cos(kicker2R * pi / 180)
   for i in range(11):
     kickerGeom2[i].setRotation((cosa, -sina, 0, sina, cosa, 0, 0, 0, 1)) # yaw rotation matrix
+
+setKickers1(0,0)
+setKickers2(0,0)
+
+blockx1 = 0
+blockx2 = 0
+def moveKickerTask(task):
+  global oldx, oldy, omx, omy, oldox, oldoy, p1score, p2score
+  global BLOCK1, BLOCK2, blockx1, blockx2
+  if base.mouseWatcherNode.hasMouse():
+    mx=base.mouseWatcherNode.getMouseX()
+    my=base.mouseWatcherNode.getMouseY()  
+  else:
+    mx=oldx
+    my=oldy
+    
+  if trainingMode:
+    omx, omy = mx, my
+    
+  if role == ROLE_CLIENT:
+    sendMove(mx, my)
+
+  if role == ROLE_SERVER:
+    if task.frame==0:
+      dt = task.time
+    else:
+      dt = task.time/task.frame * 2 # this is a global average. TODO: change to sliding window
+    if dt==0: 
+      dt = 0.01
+  
+    for i in range(STEPS):
+      x = (mx * i + oldx * (STEPS-i)) / STEPS
+      y = (my * i + oldy * (STEPS-i)) / STEPS
+      x2 = (omx * i + oldox * (STEPS-i)) / STEPS
+      y2 = (omy * i + oldoy * (STEPS-i)) / STEPS
+
+      setKickers1(x,y)
+      setKickers2(x2,y2)
+
+      BLOCK1 = False
+      BLOCK2 = False
+      space.collide((world, contactgroup), near_callback)
+      world.step(dt/10)
+      contactgroup.empty()
+      
+      if not BLOCK1 and not BLOCK2:
+        blockx1 = blockx2 = x
+      if BLOCK1:
+        setKickers1(blockx1,y)
+      if BLOCK2:
+        setKickers2(blockx2,y2)
+        
+  px,py,pz = ballBody.getPosition()
+  rot      = ballBody.getRotation() 
+  gquat    = Quat ()
+  gquat.setFromMatrix (Mat3 (*rot))
+  gpos     = VBase3 (px,py,pz)
+  ball.setPosQuat (gpos, gquat)
+  
+  oldx=mx
+  oldy=my
+  oldox = omx
+  oldoy = omy
+
+  ### CHECK FOR GOALS / OUTS ###############
+  if (px<-28) or (px>28):
+    if (py>75): #under the bar
+      if (px<-28):
+        p2score = p2score+1
+        score2.setText(P2NAME+" "+str(p2score))
+      else:
+        p1score = p1score+1
+        score1.setText(P1NAME+" "+str(p1score))
+      if not trainingMode:
+        sendScore(p1score, p2score)
+    ballBody.setPosition((sgn(px)*3,75,0)) #on the side the ball went out
+    ballBody.setLinearVel((0,0,0))
+
+  if role == ROLE_SERVER and not trainingMode:
+    sendGameStatus()
+
+  return Task.cont
+
 
 def sendGameStatus():
   px,py,pz = ballBody.getPosition()
