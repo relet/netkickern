@@ -188,7 +188,7 @@ def myProcessDataFunction(datagram):
   return
 
 ### Define network role ###############################################
-role = ROLE_SERVER #strings are bulky but quick and readable.
+role = ROLE_SERVER 
 if len(sys.argv)>1:
   role   = ROLE_CLIENT
   server = sys.argv[1]
@@ -404,12 +404,18 @@ def near_callback(args, geom1, geom2):
 
 ### place CAMERA ######################################################
 #default camera: top view
+cameraAngle = 45
 
 #base.camera.setHpr(0,25,0) #25deg angle sideways
 #base.camera.setPos(0,0,-35)
 
-base.camera.setHpr(0,45,0) #45deg angle sideways
-base.camera.setPos(0,20,-60)
+def setCamera(diff = 0):
+  global cameraAngle
+  cameraAngle = cameraAngle + diff
+  base.camera.setHpr(0,cameraAngle,0) #45deg angle sideways
+  base.camera.setPos(0,80-80*cos(cameraAngle*pi/180),0-80*sin(cameraAngle*pi/180))
+
+setCamera()
 
 #base.camera.setHpr(0,45,0) #45deg angle sideways, zoomed
 #base.camera.setPos(0,60,-20)
@@ -576,6 +582,14 @@ except Exception, e:
   print e
   #no textures then it shall be.
   pass
+
+### SET UP Keyboard control ##########################################
+
+base.accept('escape', sys.exit )             #exit on esc
+base.accept('arrow_up', setCamera, [-5])
+base.accept('arrow_down', setCamera, [5])
+base.accept('arrow_up-repeat', setCamera, [-5])
+base.accept('arrow_down-repeat', setCamera, [5])
   
 ### SET UP Mouse control #############################################
 base.disableMouse()
