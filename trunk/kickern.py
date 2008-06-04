@@ -31,6 +31,8 @@ PACKET_PREF  = 11  # query for client preferences
 PACKET_ROLE  = 12  # assign a client role
 PACKET_NAME  = 13  # name a team
 
+PACKET_RESET = 20  # suggest to reset ball position
+
 MAGIC_WORD   = "kickern?"
 PROTOCOL_VERSION = 4                        # to be increased with each protocol change
 SOFTWARE_VERSION = '$Revision$'[11:-2] # automatically set by subversion on checkout
@@ -39,6 +41,9 @@ ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
 
 trainingMode = False
+
+lastResetRequest = 0 # timestamp: partner requested reset via UDP
+lastResetPress   = 0 # timestamp: player requested reset via key press
 
 STATUS_CONF  = 0
 STATUS_INIT  = 1
@@ -108,7 +113,7 @@ def pingTask(task):
   return Task.cont
 
 def myProcessDataFunction(datagram):
-  global status, P1NAME, P2NAME
+  global status, P1NAME, P2NAME, lastResetRequest
 
   data = PyDatagramIterator(datagram)
   try: 
@@ -155,6 +160,10 @@ def myProcessDataFunction(datagram):
         now = time.time()
         deltatime = now-stime   # TODO: use this to delay mouse movements by deltatime/2
         print "network delay: "+str(deltatime*500)+"ms " #rtt/2
+      elif pktType==PACKET_RESET:
+        lastResetRequest = time.time()
+        if not isResetConfirmed():
+          setMessage("Partner wishes to reset the ball.\nPress Space to confirm.", 3)
     else: # packets received only by clients
       if pktType==PACKET_SET:
         setGameStatus(data)
@@ -182,6 +191,8 @@ def myProcessDataFunction(datagram):
         pong.addUint16(PACKET_PONG)
         pong.addFloat64(stime)
         cWriter.send(pong, myConnection)
+      elif pktType==PACKET_RESET:
+        setMessage("Partner wishes to reset the ball.\nPress Space to confirm.", 3)
   except Exception, e:
     print e 
     sys.exit(1) #wow, this is what I call exception handling.. 
@@ -281,11 +292,23 @@ textFormat(score2)
 textNodePath2 = aspect2d.attachNewNode(score2)
 textNodePath2.setScale(0.10)
 
+message = TextNode('message')
+message.setText("")
+message.setAlign(TextNode.ACenter)
+textFormat(message)
+textNodePath3 = aspect2d.attachNewNode(message)
+textNodePath3.setScale(0.10)
+textNodePath3.setPos(VBase3(0,0,0))
+
 def resetNames():
   score1.setText(P1NAME+"  "+str(p1score))
   score2.setText(P2NAME+"  "+str(p2score))
-
 resetNames()
+
+def setMessage(text, timer):
+  message.setText(text)
+  if timer>0:
+    taskMgr.doMethodLater(timer, setMessage, 'resetMessage', extraArgs=["",0])
 
 if role==ROLE_SERVER:
   score1.setAlign(TextNode.ALeft)
@@ -354,13 +377,13 @@ wallGeom[7].setPosition((28,baseheight-7.5,0))
 kickerGeom = []
 KV = 79 #"const" vertical height of kickers
 for i in range(11):
-  kickerGeom.append(ode.GeomBox(space,(2*0.65,6.36*0.65,2.0*0.65))) # exxagerated y height to [-3,18,3,18], actually should be [1.14, -3.18]
+  kickerGeom.append(ode.GeomBox(space,(2*0.65, 6.36*0.65, 1.5*0.65))) # exxagerated y height to [-3,18,3,18], actually should be [1.14, -3.18]
                                                                     # y position still has to be off-centered
   kickerGeom[i].setPosition((10,KV,10)) #just some random position. should be reassigned by mouse movement asap.
 
 kickerGeom2 = []
 for i in range(11):
-  kickerGeom2.append(ode.GeomBox(space,(2*0.65,6.36*0.65,2.0*0.65))) #exxagerated y height to [-3,18,3,18], actually should be [1.14, -3.18]
+  kickerGeom2.append(ode.GeomBox(space,(2*0.65, 6.36*0.65, 1.5*0.65))) #exxagerated y height to [-3,18,3,18], actually should be [1.14, -3.18]
                                                                      # y position still has to be off-centered
   kickerGeom2[i].setPosition((10,KV,10)) #just some random position. should be reassigned by mouse movement asap.
 
@@ -400,7 +423,7 @@ def near_callback(args, geom1, geom2):
       c.setMu(1)      #walls have ok bounce, noticeable friction
       c.setBounce(2)
     else:             #ignore anything else. I have no idea what that could be
-      print "something undetected collided with my balls. ouch."
+      print "something unidentified collided with my balls. ouch."
       continue 
     j=ode.ContactJoint(world, contactgroup, c)
     j.attach(geom1.getBody(), geom2.getBody())
@@ -588,11 +611,44 @@ except Exception, e:
 
 ### SET UP Keyboard control ##########################################
 
+def doReset():
+  global lastResetPress, lastResetRequest
+  
+  px = ballBody.getPosition()[0]
+  ballBody.setPosition((sgn(px)*3,75,0)) #on the side the ball is 
+  ballBody.setLinearVel((0,0,0))
+  #FIXME: implement correct reset rules
+  
+  lastResetPress, lastResetRequest = 0, 0
+  
+  
+def isResetConfirmed():
+  global lastResetPress, lastResetRequest
+  if trainingMode:
+    doReset()
+    return True
+  now = time.time()
+  if lastResetPress > now - 3.0 and lastResetRequest > now - 3.0:
+    doReset()
+    return True
+  else:
+    return False
+
+def checkReset():
+  global lastResetPress
+  lastResetPress = time.time()
+  if role==ROLE_CLIENT or (role == ROLE_SERVER and not isResetConfirmed()):
+    reset = PyDatagram() #send a reset request to partner
+    reset.addUint16(PACKET_RESET)
+    cWriter.send(reset, myConnection)
+
 base.accept('escape', sys.exit )             #exit on esc
 base.accept('arrow_up', setCamera, [-5])
 base.accept('arrow_down', setCamera, [5])
 base.accept('arrow_up-repeat', setCamera, [-5])
 base.accept('arrow_down-repeat', setCamera, [5])
+base.accept('space', checkReset ) 
+base.accept('r',     checkReset ) 
   
 ### SET UP Mouse control #############################################
 base.disableMouse()
@@ -762,9 +818,6 @@ def sendGameStatus():
   px,py,pz = ballBody.getPosition()
   prot     = ballBody.getRotation()
 
-#  vx,vy,vz = ballBody.getLinearVel()
-#  rx,ry,rz = ballBody.getAngularVel()
-  
   r1,r2,r3,r4 = row1.getZ(), row2.getZ(), row3.getZ(), row4.getZ()
   o1,o2,o3,o4 = rrow1.getZ(), rrow2.getZ(), rrow3.getZ(), rrow4.getZ()
   
@@ -778,12 +831,6 @@ def sendGameStatus():
   status.addFloat64(pz)
   for r in range(9): #just to be explicit
     status.addFloat64(prot[i])
-#  status.addFloat64(vx)
-#  status.addFloat64(vy)
-#  status.addFloat64(vz)
-#  status.addFloat64(rx)
-#  status.addFloat64(ry)
-#  status.addFloat64(rz)
   
   status.addFloat64(r1)
   status.addFloat64(r2)
