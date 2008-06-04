@@ -34,7 +34,7 @@ PACKET_NAME  = 13  # name a team
 PACKET_RESET = 20  # suggest to reset ball position
 
 MAGIC_WORD   = "kickern?"
-PROTOCOL_VERSION = 4                        # to be increased with each protocol change
+PROTOCOL_VERSION = 5                        # to be increased with each protocol change
 SOFTWARE_VERSION = '$Revision$'[11:-2] # automatically set by subversion on checkout
 
 ROLE_SERVER  = 1
