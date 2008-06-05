@@ -11,13 +11,18 @@ print """
 DATAPATH="./data/" # where to find data files (.x models)
 PORT=5036          # default port to use for connections
 
-STEPS = 10         #each mouse movement is divided into STEPS steps, to keep physics changes smooth. 10 is good for solo use
+STEPS = 10         # each mouse movement is divided into STEPS steps, to keep physics changes smooth. 10 is good for solo use
 
-TEAMNAME = None
-P1NAME = "PLAYER1"     #the server, currently.
-P2NAME = "PLAYER2"     #the client, currently.
+MOUSEX_SPEED = 250 # increase this to make horizontal movements faster
+MOUSEY_SPEED = 10  # increase this to make vertical movements faster
 
-#list of used packet types
+Y_STICKINESS = 100 # how much the ball assumes vertical movements of the kicker upon contact
+
+TEAMNAME = None    # To be set according to role or config file - not actually a const. 
+P1NAME = "PLAYER1" # default team name for the server.
+P2NAME = "PLAYER2" # default team name for the client.
+
+### list of used packet types #######################################
 PACKET_HELLO = 0   # identification using magic word
 PACKET_SCORE = 1   # send a score update to client
 PACKET_PING  = 2   # measure round trip time
@@ -32,22 +37,24 @@ PACKET_ROLE  = 12  # assign a client role
 PACKET_NAME  = 13  # name a team
 
 PACKET_RESET = 20  # suggest to reset ball position
+#####################################################################
 
 MAGIC_WORD   = "kickern?"
-PROTOCOL_VERSION = 5                        # to be increased with each protocol change
-SOFTWARE_VERSION = '$Revision$'[11:-2] # automatically set by subversion on checkout
+PROTOCOL_VERSION = 6                              # to be increased with each protocol change
+SOFTWARE_VERSION = "svn"+'$Revision$'[11:-2] # automatically set by subversion on checkout
 
 ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
+
+STATUS_CONF  = 0 # currently not used (FIXME: delete or use)
+STATUS_INIT  = 1 # currently not used
+STATUS_LIVE  = 2 # currently not used
 
 trainingMode = False
 
 lastResetRequest = 0 # timestamp: partner requested reset via UDP
 lastResetPress   = 0 # timestamp: player requested reset via key press
 
-STATUS_CONF  = 0
-STATUS_INIT  = 1
-STATUS_LIVE  = 2
 
 print "Debug information:"
 print "  You are using software revision "+SOFTWARE_VERSION
@@ -405,17 +412,19 @@ def near_callback(args, geom1, geom2):
         ax, ay, az = ballBody.getLinearVel()
         px, py, pz = c.getContactGeomParams()[0]
         if geom1 in kickerGeom or geom2 in kickerGeom:
+          if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
+            ballBody.setLinearVel((ax,ay,(az+mouseAy1)/2)) #causes some stickiness in the vertical axis
           angle = kicker.getH()
           if ((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90)):
             BLOCK1 = True
-            ballBody.setLinearVel((0,0,0))
-            #continue
+            ballBody.setLinearVel((ax/3, ay, mouseAy1))
         else:
+          if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
+            ballBody.setLinearVel((ax, ay, (az+mouseAy2)/2)) #causes some stickiness in the vertical axis
           angle = kicker2.getH()
           if ((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90)):
             BLOCK2 = True
-            ballBody.setLinearVel((0,0,0))
-            #continue
+            ballBody.setLinearVel((ax/3, ay, mouseAy2))
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
       c.setMu(10)    #table has little bounce, noticeable friction
       c.setBounce(1.5) 
@@ -663,11 +672,11 @@ oldox=0
 oldoy=0
 
 def setKickers1(x,y):  #player1
-  kickerZ1 = min(7.9, max(-7.9, y*10))
-  kickerZ2 = min(7.9, max(-7.9, y*10))
-  kickerZ3 = min(2.9, max(-2.9, y*10))
-  kickerZ4 = min(5.9, max(-5.9, y*10))
-  kickerR = x*250;
+  kickerZ1 = min(7.9, max(-7.9, y))
+  kickerZ2 = min(7.9, max(-7.9, y))
+  kickerZ3 = min(2.9, max(-2.9, y))
+  kickerZ4 = min(5.9, max(-5.9, y))
+  kickerR = x;
 
   row1.setZ(kickerZ1)
   row2.setZ(kickerZ2)
@@ -696,11 +705,11 @@ def setKickers1(x,y):  #player1
     kickerGeom[i].setRotation((cosa, -sina, 0, sina, cosa, 0, 0, 0, 1)) # yaw rotation matrix
 
 def setKickers2(x,y):  #player2
-  kicker2Z1 = min(7.9, max(-7.9, y*10))
-  kicker2Z2 = min(7.9, max(-7.9, y*10))
-  kicker2Z3 = min(2.9, max(-2.9, y*10))
-  kicker2Z4 = min(5.9, max(-5.9, y*10))
-  kicker2R = x*250;
+  kicker2Z1 = min(7.9, max(-7.9, y))
+  kicker2Z2 = min(7.9, max(-7.9, y))
+  kicker2Z3 = min(2.9, max(-2.9, y))
+  kicker2Z4 = min(5.9, max(-5.9, y))
+  kicker2R = x;
 
   rrow1.setZ(kicker2Z1) #no effect currently
   rrow2.setZ(kicker2Z2)
@@ -737,9 +746,10 @@ blockx2 = 0
 def moveKickerTask(task):
   global oldx, oldy, omx, omy, oldox, oldoy, p1score, p2score
   global BLOCK1, BLOCK2, blockx1, blockx2
+  global mouseAy1, mouseAy2
   if base.mouseWatcherNode.hasMouse():
-    mx=base.mouseWatcherNode.getMouseX()
-    my=base.mouseWatcherNode.getMouseY()  
+    mx=base.mouseWatcherNode.getMouseX() * MOUSEX_SPEED
+    my=base.mouseWatcherNode.getMouseY() * MOUSEY_SPEED
   else:
     mx=oldx
     my=oldy
@@ -758,6 +768,8 @@ def moveKickerTask(task):
     if dt==0: 
       dt = 0.01
   
+    mouseAy1 = (my-oldy)   / STEPS * Y_STICKINESS
+    mouseAy2 = (omy-oldoy) / STEPS * Y_STICKINESS
     for i in range(STEPS):
       x = (mx * i + oldx * (STEPS-i)) / STEPS
       y = (my * i + oldy * (STEPS-i)) / STEPS
