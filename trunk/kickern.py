@@ -414,17 +414,17 @@ def near_callback(args, geom1, geom2):
         if geom1 in kickerGeom or geom2 in kickerGeom:
           if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
             ballBody.setLinearVel((ax,ay,(az+mouseAy1)/2)) #causes some stickiness in the vertical axis
-          angle = kicker.getH()
-          if ((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90)):
-            BLOCK1 = True
-            ballBody.setLinearVel((ax/3, ay, mouseAy1))
+            angle = kicker.getH()
+            if (by>py) and (((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90))):
+              BLOCK1 = True
+              ballBody.setLinearVel((ax/3, ay, mouseAy1))
         else:
           if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
             ballBody.setLinearVel((ax, ay, (az+mouseAy2)/2)) #causes some stickiness in the vertical axis
-          angle = kicker2.getH()
-          if ((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90)):
-            BLOCK2 = True
-            ballBody.setLinearVel((ax/3, ay, mouseAy2))
+            angle = kicker2.getH()
+            if (by>py) and (((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90))):
+              BLOCK2 = True
+              ballBody.setLinearVel((ax/3, ay, mouseAy2))
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
       c.setMu(10)    #table has little bounce, noticeable friction
       c.setBounce(1.5) 
