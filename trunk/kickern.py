@@ -11,7 +11,8 @@ print """
 DATAPATH="./data/" # where to find data files (.x models)
 PORT=5036          # default port to use for connections
 
-STEPS = 10         # each mouse movement is divided into STEPS steps, to keep physics changes smooth. 10 is good for solo use
+STEPS = 15         # each mouse movement is divided into STEPS steps, to keep physics changes smooth. 10 feels good
+                   # lower this for slower computers - however, fast mouse movements may not be correctly recognized
 
 MOUSEX_SPEED = 250 # increase this to make horizontal movements faster
 MOUSEY_SPEED = 10  # increase this to make vertical movements faster
@@ -49,6 +50,14 @@ ROLE_CLIENT  = 2
 STATUS_CONF  = 0 # currently not used (FIXME: delete or use)
 STATUS_INIT  = 1 # currently not used
 STATUS_LIVE  = 2 # currently not used
+
+COLCAT_BALL   = 1  # arbitrary category bit. used to determine who can collide with whom. this is the ball - default category
+COLCAT_WALL   = 2  # arbitrary category bit. used to determine who can collide with whom. 
+COLCAT_KICKER = 4  # arbitrary category bit. used to determine who can collide with whom. 
+COLCAT_FIELD  = 8  # arbitrary category bit. used to determine who can collide with whom. 
+# TODO: all objects setCollisionBits(1)      = collide only with the ball
+# TODO: all objects setCollisionCategory(>1) = don't get collided
+
 
 trainingMode = False
 
@@ -349,9 +358,15 @@ ballGeom.setBody(ballBody)
 # place ball
 ballBody.setPosition((-3,75,0))
 
+ballGeom.setCategoryBits(COLCAT_BALL)
+ballGeom.setCollideBits (COLCAT_WALL + COLCAT_KICKER + COLCAT_FIELD)
+
 ## define table
 #tableGeom = ode.GeomBox(space, (28,8,8)) #theoretical extents
 tableGeom = ode.GeomBox(space, (56,1,32)) #trial and error
+
+tableGeom.setCategoryBits(COLCAT_FIELD)
+tableGeom.setCollideBits (0) #one way suffices
 
 baseheight = 82.4
 
@@ -380,6 +395,10 @@ wallGeom[6].setPosition((28,baseheight-2.5,9))
 wallGeom.append( ode.GeomBox(space, (2,5,32)) )
 wallGeom[7].setPosition((28,baseheight-7.5,0))
 
+for geom in wallGeom:
+  geom.setCategoryBits(COLCAT_WALL)
+  geom.setCollideBits (0) #one way suffices
+
 ## define kickers
 kickerGeom = []
 KV = 79 #"const" vertical height of kickers
@@ -394,14 +413,28 @@ for i in range(11):
                                                                      # y position still has to be off-centered
   kickerGeom2[i].setPosition((10,KV,10)) #just some random position. should be reassigned by mouse movement asap.
 
+for geom in kickerGeom+kickerGeom2:
+  geom.setCategoryBits(COLCAT_KICKER)
+  geom.setCollideBits (0) #one way suffices
+
 BLOCK1 = False
 BLOCK2 = False
 
+#called = 0
+
 def near_callback(args, geom1, geom2):
   global BLOCK1, BLOCK2, kicker, kicker2
+  #global called
+  
+  #called = called + 1
+  
   contacts=ode.collide(geom1, geom2)
   world, contactgroup = args
   for c in contacts:
+    
+    #if not ((geom1 == ballGeom) or (geom2 == ballGeom)):
+    #  print "rong collision!"
+    
     if (geom1 in kickerGeom) or (geom2 in kickerGeom) or (geom1 in kickerGeom2) or (geom2 in kickerGeom2):
       c.setMu(1E5)     #kickers have high friction, minimal bounce - FIXME: does not work. you still can't stop balls
       c.setBounce(1) 
@@ -415,14 +448,14 @@ def near_callback(args, geom1, geom2):
           if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
             ballBody.setLinearVel((ax,ay,(az+mouseAy1)/2)) #causes some stickiness in the vertical axis
             angle = kicker.getH()
-            if (by>py) and (((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90))):
+            if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
               BLOCK1 = True
               ballBody.setLinearVel((ax/3, ay, mouseAy1))
         else:
           if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
             ballBody.setLinearVel((ax, ay, (az+mouseAy2)/2)) #causes some stickiness in the vertical axis
             angle = kicker2.getH()
-            if (by>py) and (((angle < -60) and (angle>-90)) or ((angle > 60) and (angle<90))):
+            if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
               BLOCK2 = True
               ballBody.setLinearVel((ax/3, ay, mouseAy2))
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
@@ -438,11 +471,8 @@ def near_callback(args, geom1, geom2):
     j.attach(geom1.getBody(), geom2.getBody())
 
 ### place CAMERA ######################################################
-#default camera: top view
+#default camera
 cameraAngle = 45
-
-#base.camera.setHpr(0,25,0) #25deg angle sideways
-#base.camera.setPos(0,0,-35)
 
 def setCamera(diff = 0):
   global cameraAngle
@@ -451,6 +481,9 @@ def setCamera(diff = 0):
   base.camera.setPos(0,80-80*cos(cameraAngle*pi/180),0-80*sin(cameraAngle*pi/180))
 
 setCamera()
+
+#base.camera.setHpr(0,25,0) #25deg angle sideways
+#base.camera.setPos(0,0,-35)
 
 #base.camera.setHpr(0,45,0) #45deg angle sideways, zoomed
 #base.camera.setPos(0,60,-20)
@@ -683,7 +716,7 @@ def setKickers1(x,y):  #player1
   row3.setZ(kickerZ3)
   row4.setZ(kickerZ4)
   kicker.setH(kickerR)
-    
+  
   kickerGeom[0].setPosition((-23, KV, kickerZ1)) 
   
   kickerGeom[1].setPosition((-16.33, KV, kickerZ2+6)) 
@@ -747,6 +780,8 @@ def moveKickerTask(task):
   global oldx, oldy, omx, omy, oldox, oldoy, p1score, p2score
   global BLOCK1, BLOCK2, blockx1, blockx2
   global mouseAy1, mouseAy2
+  #global called
+  
   if base.mouseWatcherNode.hasMouse():
     mx=base.mouseWatcherNode.getMouseX() * MOUSEX_SPEED
     my=base.mouseWatcherNode.getMouseY() * MOUSEY_SPEED
@@ -793,7 +828,9 @@ def moveKickerTask(task):
         setKickers2(blockx2,y2)
       else:
         blockx2 = x2
-
+    
+  #print "collision/frame: " + str(called/task.frame)
+    
   px,py,pz = ballBody.getPosition()
   rot      = ballBody.getRotation() 
   gquat    = Quat ()
