@@ -8,7 +8,11 @@ print """
   see: http://www.gnu.org/licenses/gpl-3.0.html
 """
 
-DATAPATH="./data/" # where to find data files (.x models)
+import os
+
+SEPARATOR = os.path.normpath('/');              # find out what a SEPARATOR looks like on this os
+DATAPATH = "." + SEPARATOR + "data" + SEPARATOR # where to find data files (.x models)
+
 PORT=5036          # default port to use for connections
 
 STEPS = 15         # each mouse movement is divided into STEPS steps, to keep physics changes smooth. 10 feels good
@@ -33,7 +37,7 @@ PACKET_MOVE  = 5   # movement update client -> server
 PACKET_SET   = 6   # physics & movement update, server -> client
 
 PACKET_QPREF = 10  # query for client preferences
-PACKET_PREF  = 11  # query for client preferences
+PACKET_PREF  = 11  # reply with client preferences
 PACKET_ROLE  = 12  # assign a client role
 PACKET_NAME  = 13  # name a team
 
@@ -75,7 +79,6 @@ print ""
 import ode
 import sys
 import time
-import os
 
 from random import random
 from math import sin, cos, pi, atan2, sqrt
