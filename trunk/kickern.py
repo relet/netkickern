@@ -664,6 +664,7 @@ def doReset():
   ballBody.setLinearVel((0,0,0))
   #FIXME: implement correct reset rules
   
+  setMessage("", 3) #remove any existing messages
   lastResetPress, lastResetRequest = 0, 0
   
   
