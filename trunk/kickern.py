@@ -42,10 +42,11 @@ PACKET_ROLE  = 12  # assign a client role
 PACKET_NAME  = 13  # name a team
 
 PACKET_RESET = 20  # suggest to reset ball position
+PACKET_MSG   = 21  # send a custom message to another player
 #####################################################################
 
 MAGIC_WORD   = "kickern?"
-PROTOCOL_VERSION = 6                              # to be increased with each protocol change
+PROTOCOL_VERSION = 7                              # to be increased with each protocol change
 SOFTWARE_VERSION = "svn"+'$Revision$'[11:-2] # automatically set by subversion on checkout
 
 ROLE_SERVER  = 1
@@ -104,6 +105,19 @@ try:
   config = ConfigParser()
   config.read(['kickern.conf', 'kickern.ini'])
   TEAMNAME = config.get('team','name')
+  messages=[]
+  messages.append(config.get('messages','f1'))
+  messages.append(config.get('messages','f2'))
+  messages.append(config.get('messages','f3'))
+  messages.append(config.get('messages','f4'))
+  messages.append(config.get('messages','f5'))
+  messages.append(config.get('messages','f6'))
+  messages.append(config.get('messages','f7'))
+  messages.append(config.get('messages','f8'))
+  messages.append(config.get('messages','f9'))
+  messages.append(config.get('messages','f10'))
+  messages.append(config.get('messages','f11'))
+  messages.append(config.get('messages','f12'))
 except:
   pass
 
@@ -137,7 +151,11 @@ def myProcessDataFunction(datagram):
   data = PyDatagramIterator(datagram)
   try: 
     pktType = data.getUint16()
-    if role==ROLE_SERVER: # packets received only by server
+    if pktType==PACKET_MSG:
+      timer = data.getUint16()
+      msg   = data.getString()
+      setMessage(msg, timer)
+    elif role==ROLE_SERVER: # packets received only by server
       if pktType==PACKET_MOVE:
         setOpponentMove(data)
       elif pktType==PACKET_HELLO:
@@ -317,7 +335,7 @@ message.setAlign(TextNode.ACenter)
 textFormat(message)
 textNodePath3 = aspect2d.attachNewNode(message)
 textNodePath3.setScale(0.10)
-textNodePath3.setPos(VBase3(0,0,0))
+textNodePath3.setPos(VBase3(0,0,-.85))
 
 def resetNames():
   score1.setText(P1NAME+"  "+str(p1score))
@@ -329,6 +347,15 @@ def setMessage(text, timer):
   if timer>0:
     taskMgr.doMethodLater(timer, setMessage, 'resetMessage', extraArgs=["",0])
 
+def setAndSendMessage(text, timer):
+  if not trainingMode:
+    msg = PyDatagram() #query for client preferences
+    msg.addUint16(PACKET_MSG)
+    msg.addUint16(timer)
+    msg.addString(text)
+    cWriter.send(msg, myConnection)
+  setMessage(text, timer)
+  
 if role==ROLE_SERVER:
   score1.setAlign(TextNode.ALeft)
   textNodePath1.setPos(VBase3(-1,0,.75))
@@ -695,6 +722,21 @@ base.accept('arrow_up-repeat', setCamera, [-5])
 base.accept('arrow_down-repeat', setCamera, [5])
 base.accept('space', checkReset ) 
 base.accept('r',     checkReset ) 
+try:
+  base.accept('f1', setAndSendMessage, [messages[0],3])
+  base.accept('f2', setAndSendMessage, [messages[1],3])
+  base.accept('f3', setAndSendMessage, [messages[2],3])
+  base.accept('f4', setAndSendMessage, [messages[3],3])
+  base.accept('f5', setAndSendMessage, [messages[4],3])
+  base.accept('f6', setAndSendMessage, [messages[5],3])
+  base.accept('f7', setAndSendMessage, [messages[6],3])
+  base.accept('f8', setAndSendMessage, [messages[7],3])
+  base.accept('f9', setAndSendMessage, [messages[8],3])
+  base.accept('f10', setAndSendMessage, [messages[9],3])
+  base.accept('f11', setAndSendMessage, [messages[10],3])
+  base.accept('f12', setAndSendMessage, [messages[11],3])
+except:
+  pass
   
 ### SET UP Mouse control #############################################
 base.disableMouse()
