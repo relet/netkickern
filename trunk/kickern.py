@@ -24,8 +24,8 @@ MOUSEY_SPEED = 10  # increase this to make vertical movements faster
 Y_STICKINESS = 100 # how much the ball assumes vertical movements of the kicker upon contact
 
 TEAMNAME = None    # To be set according to role or config file - not actually a const. 
-P1NAME = "PLAYER1" # default team name for the server.
-P2NAME = "PLAYER2" # default team name for the client.
+P1NAME = "NONAMES" # default team name for the server.
+P2NAME = "DUMMIES" # default team name for the client.
 
 ### list of used packet types #######################################
 PACKET_HELLO = 0   # identification using magic word
@@ -46,7 +46,7 @@ PACKET_MSG   = 21  # send a custom message to another player
 #####################################################################
 
 MAGIC_WORD   = "kickern?"
-PROTOCOL_VERSION = 7                              # to be increased with each protocol change
+PROTOCOL_VERSION = 8                              # to be increased with each protocol change
 SOFTWARE_VERSION = "svn"+'$Revision$'[11:-2] # automatically set by subversion on checkout
 
 ROLE_SERVER  = 1
@@ -56,19 +56,21 @@ STATUS_CONF  = 0 # currently not used (FIXME: delete or use)
 STATUS_INIT  = 1 # currently not used
 STATUS_LIVE  = 2 # currently not used
 
-COLCAT_BALL   = 1  # arbitrary category bit. used to determine who can collide with whom. this is the ball - default category
+COLCAT_BALL   = 1  # arbitrary category bit. used to determine who can collide with whom. This is the ball - default category
 COLCAT_WALL   = 2  # arbitrary category bit. used to determine who can collide with whom. 
 COLCAT_KICKER = 4  # arbitrary category bit. used to determine who can collide with whom. 
 COLCAT_FIELD  = 8  # arbitrary category bit. used to determine who can collide with whom. 
-# TODO: all objects setCollisionBits(1)      = collide only with the ball
-# TODO: all objects setCollisionCategory(>1) = don't get collided
 
+MODE_TRAINING = 1 #Training mode. No network communication, player controls all handles 
+MODE_2P       = 2 #2P network mode. Each player controls four handles.
+MODE_4P       = 3 #4P network mode. Each player controls two handles.
 
-trainingMode = False
+mode = MODE_2P
 
 lastResetRequest = 0 # timestamp: partner requested reset via UDP
 lastResetPress   = 0 # timestamp: player requested reset via key press
 
+playerPrefs = {}
 
 print "Debug information:"
 print "  You are using software revision "+SOFTWARE_VERSION
@@ -124,7 +126,7 @@ except:
 ### Network handling functions#########################################
 def startGame():
   taskMgr.add(moveKickerTask, "gameTask");
-  if role==ROLE_SERVER and not trainingMode:
+  if role==ROLE_SERVER and not (mode==MODE_TRAINING):
     taskMgr.add(pingTask, "pingTask"); # not needed, currently. enable to determine rtt (deltatime)
    
 def tskReaderPolling(taskdata):
@@ -136,20 +138,27 @@ def tskReaderPolling(taskdata):
       myProcessDataFunction(datagram) 
   return Task.cont
 
+def toAll(packet, connections):
+  for con in connections:
+    cWriter.send(packet, con)
+
 def pingTask(task):
   if (task.frame % 1000) > 0: #determine network delay every now and then (every 1000 frames)
     return Task.cont
   ping = PyDatagram()
   ping.addUint16(PACKET_PING)
   ping.addFloat64(time.time())
-  cWriter.send(ping, myConnection)
+  toAll(ping, activeConnections)
   return Task.cont
 
 def myProcessDataFunction(datagram):
   global status, P1NAME, P2NAME, lastResetRequest
 
+  if (role==ROLE_SERVER):
+    sender = activeConnections.index(datagram.getConnection())
   data = PyDatagramIterator(datagram)
-  try: 
+  #try:
+  if True: #just to keep the indent 
     pktType = data.getUint16()
     if pktType==PACKET_MSG:
       timer = data.getUint16()
@@ -157,7 +166,7 @@ def myProcessDataFunction(datagram):
       setMessage(msg, timer)
     elif role==ROLE_SERVER: # packets received only by server
       if pktType==PACKET_MOVE:
-        setOpponentMove(data)
+        setOpponentMove(data, sender)
       elif pktType==PACKET_HELLO:
         magic = data.getString()
         proto = data.getUint16()
@@ -171,36 +180,46 @@ def myProcessDataFunction(datagram):
           sys.exit(1)
         if soft != SOFTWARE_VERSION:
           print "WARNING: Client is using software "+soft+"."
-        print "Ok, client connected."
+        print "Ok, client "+str(sender)+" connected."
         status = STATUS_INIT
         qpref = PyDatagram() #query for client preferences
         qpref.addUint16(PACKET_QPREF)
         qpref.addString(SOFTWARE_VERSION)
-        cWriter.send(qpref, myConnection)
+        cWriter.send(qpref, activeConnections[sender])
       elif pktType==PACKET_PREF:
         if status != STATUS_INIT:
           return
+        prefs = {}
         teamname = data.getString()
-        P2NAME = teamname
-        resetNames()
-        rename = PyDatagram() # confirm renaming of P2 
-        rename.addUint16(PACKET_NAME)
-        rename.addString(P1NAME) 
-        rename.addString(P2NAME) 
-        cWriter.send(rename, myConnection)
-        welcome = PyDatagram()
-        welcome.addUint16(PACKET_START)
-        cWriter.send(welcome, myConnection)
-        startGame()
+        prefs['team']=teamname
+        playerPrefs[sender]=prefs
+        if (mode == MODE_2P) or (playerPrefs.has_key(0) and playerPrefs.hasKey(1) and playerPrefs.hasKey(2)):
+          P1NAME = TEAMNAME
+          P2NAME = playerPrefs[0]['team']
+          rename = PyDatagram() 
+          rename.addUint16(PACKET_NAME)
+          rename.addString(P1NAME) 
+          rename.addString(P2NAME) 
+          toAll(rename, activeConnections)
+          resetNames()           #FIXME: if 4pmode: identify all team names, reorder players according to teams
+          welcome = PyDatagram()
+          welcome.addUint16(PACKET_START)
+          toAll(welcome, activeConnections)
+          startGame()
       elif pktType==PACKET_PONG:
         stime = data.getFloat64()
         now = time.time()
-        deltatime = now-stime   # TODO: use this to delay mouse movements by deltatime/2
-        print "network delay: "+str(deltatime*500)+"ms " #rtt/2
+        deltatime = now-stime   # TODO: use this to delay mouse movements by avg(deltatime)/2
+        print "player "+str(sender)+" network delay: "+str(deltatime*500)+"ms " #rtt/2
       elif pktType==PACKET_RESET:
         lastResetRequest = time.time()
+        playerPrefs[sender]['lastReset']=lastResetRequest
         if not isResetConfirmed():
-          setMessage("Partner wishes to reset the ball.\nPress Space to confirm.", 3)
+          resetRequest=PyDatagram() #forward to all clients 
+          resetRequest.addUint16(PACKET_RESET)
+          #resetRequest.addUint16(sender) # TODO: tell everyone which player sent the request
+          toAll(resetRequest, activeConnections) 
+          setMessage("Player "+str(sender)+" wishes to reset the ball.\nPress Space to confirm.", 3)
     else: # packets received only by clients
       if pktType==PACKET_SET:
         setGameStatus(data)
@@ -214,7 +233,7 @@ def myProcessDataFunction(datagram):
         pref = PyDatagram()
         pref.addUint16(PACKET_PREF)
         pref.addString(TEAMNAME)
-        cWriter.send(pref, myConnection)     
+        cWriter.send(pref, serverConnection)     
       elif pktType==PACKET_START:
         print "connection to game host confirmed."
         startGame()
@@ -227,26 +246,31 @@ def myProcessDataFunction(datagram):
         pong = PyDatagram()
         pong.addUint16(PACKET_PONG)
         pong.addFloat64(stime)
-        cWriter.send(pong, myConnection)
+        cWriter.send(pong, serverConnection)
       elif pktType==PACKET_RESET:
-        setMessage("Partner wishes to reset the ball.\nPress Space to confirm.", 3)
-  except Exception, e:
-    print e 
-    sys.exit(1) #wow, this is what I call exception handling.. 
+        setMessage("Another wishes to reset the ball.\nPress Space to confirm.", 3)
+  #except Exception, e:
+  #  print e 
+  #  sys.exit(1) #wow, this is what I call exception handling.. 
   return
 
 ### Define network role ###############################################
 role = ROLE_SERVER 
 if len(sys.argv)>1:
-  role   = ROLE_CLIENT
-  server = sys.argv[1]
-  print    server
+  if sys.argv[1]=='-4':
+    mode = MODE_4P
+    print "Server mode. 4 player mode." 
+  else:
+    role   = ROLE_CLIENT
+    server = sys.argv[1]
+    print "Client mode." 
 
 cManager = QueuedConnectionManager()
 cReader  = QueuedConnectionReader(cManager, 0)
 cWriter  = ConnectionWriter(cManager,0)
 
-myConnection = False
+activeConnections = False # all connections to clients
+serverConnection  = False # connection to a server only
 
 if role == ROLE_SERVER:
   if TEAMNAME is None:
@@ -258,41 +282,51 @@ if role == ROLE_SERVER:
   tcpSocket = cManager.openTCPServerRendezvous(PORT,1000)
   cListener.addConnection(tcpSocket)
 
-  print "=================================="
-  print "waiting for opponent to connect.  "
-  print "or press Ctrl+C to enter training."
-  print "=================================="
+  print "====================================="
+  if mode == MODE_4P:
+    print "waiting for opponents to connect.  "
+  else:
+    print "waiting for opponent to connect.  "
+    print "or press Ctrl+C to enter training.   "
+  print "====================================="
   try:
-    while not cListener.newConnectionAvailable():
-      time.sleep(0.1)
-    rendezvous = PointerToConnection()
-    netAddress = NetAddress()
-    myConnection = PointerToConnection()
+    waitfor = (mode == MODE_2P) and 1 or 3
+    while len(activeConnections) < waitfor:
+      while not cListener.newConnectionAvailable():
+        time.sleep(0.1)
+      rendezvous = PointerToConnection()
+      netAddress = NetAddress()
+      myConnection = PointerToConnection()
 
-    if cListener.getNewConnection(rendezvous,netAddress,myConnection):
-      myConnection = myConnection.p()
-      activeConnections.append(myConnection) # Remember connection
-      cReader.addConnection(myConnection)    # Begin reading connection
+      if cListener.getNewConnection(rendezvous,netAddress,myConnection):
+        myConnection = myConnection.p()
+        activeConnections.append(myConnection) # Remember connection
+        cReader.addConnection(myConnection)    # Begin reading connection
+        print "Players connected :"+str(len(activeConnections))
+
   except KeyboardInterrupt:
-    print "aborted. Switching to single player (training) mode."
-    trainingMode = True
-    #sys.exit(1)
-
+    print "aborted."
+    if mode==MODE_2P:
+      print "Switching to single player (training) mode."
+      mode = MODE_TRAINING
+    else:
+      #FIXME: close open connections, maybe notify clients
+      sys.exit(1)
 
 else: 
   if not TEAMNAME:
     TEAMNAME=P2NAME
-  myConnection=cManager.openTCPClientConnection(server,PORT,3000)
-  if myConnection:
-    cReader.addConnection(myConnection)    # receive messages from server
+  serverConnection=cManager.openTCPClientConnection(server,PORT,3000)
+  if serverConnection:
+    cReader.addConnection(serverConnection)    # receive messages from server
     welcome = PyDatagram()
     welcome.addUint16(PACKET_HELLO)
     welcome.addString(MAGIC_WORD)          # the magic word to initiate a game.
     welcome.addUint16(PROTOCOL_VERSION) 
     welcome.addString(SOFTWARE_VERSION) 
-    cWriter.send(welcome, myConnection)
+    cWriter.send(welcome, serverConnection)
 
-  if not myConnection:
+  if not serverConnection:
     print "connection failed."
     sys.exit(1)
 
@@ -348,12 +382,12 @@ def setMessage(text, timer):
     taskMgr.doMethodLater(timer, setMessage, 'resetMessage', extraArgs=["",0])
 
 def setAndSendMessage(text, timer):
-  if not trainingMode:
-    msg = PyDatagram() #query for client preferences
+  if not mode==MODE_TRAINING:
+    msg = PyDatagram() #send message packet
     msg.addUint16(PACKET_MSG)
     msg.addUint16(timer)
     msg.addString(text)
-    cWriter.send(msg, myConnection)
+    toAll(msg, activeConnections)
   setMessage(text, timer)
   
 if role==ROLE_SERVER:
@@ -368,7 +402,7 @@ else:
   textNodePath2.setPos(VBase3(-1,0,.75))
 
 base.setFrameRateMeter(True)
-if not trainingMode:
+if not mode==MODE_TRAINING:
   taskMgr.add(tskReaderPolling,"Poll the connection reader",-40)
 
 ### Setup pyODE ########################################################
@@ -697,7 +731,7 @@ def doReset():
   
 def isResetConfirmed():
   global lastResetPress, lastResetRequest
-  if trainingMode:
+  if mode==MODE_TRAINING:
     doReset()
     return True
   now = time.time()
@@ -710,10 +744,12 @@ def isResetConfirmed():
 def checkReset():
   global lastResetPress
   lastResetPress = time.time()
-  if role==ROLE_CLIENT or (role == ROLE_SERVER and not isResetConfirmed()):
-    reset = PyDatagram() #send a reset request to partner
-    reset.addUint16(PACKET_RESET)
-    cWriter.send(reset, myConnection)
+  reset = PyDatagram() #send a reset request to partner
+  reset.addUint16(PACKET_RESET)
+  if role==ROLE_CLIENT: 
+    cWriter.send(reset, serverConnection)
+  elif role == ROLE_SERVER and not isResetConfirmed():
+    toAll(reset, activeConnections)
 
 base.accept('escape', sys.exit )             #exit on esc
 base.accept('arrow_up', setCamera, [-5])
@@ -835,7 +871,7 @@ def moveKickerTask(task):
     mx=oldx
     my=oldy
     
-  if trainingMode:
+  if mode==MODE_TRAINING:
     omx, omy = mx, my
     
   if role == ROLE_CLIENT:
@@ -898,12 +934,12 @@ def moveKickerTask(task):
       else:
         p1score = p1score+1
         score1.setText(P1NAME+" "+str(p1score))
-      if not trainingMode:
+      if not mode==MODE_TRAINING:
         sendScore(p1score, p2score)
     ballBody.setPosition((sgn(px)*3,75,0)) #on the side the ball went out
     ballBody.setLinearVel((0,0,0))
 
-  if role == ROLE_SERVER and not trainingMode:
+  if role == ROLE_SERVER and not mode==MODE_TRAINING:
     sendGameStatus()
 
   return Task.cont
@@ -939,21 +975,21 @@ def sendGameStatus():
   status.addFloat64(o4)
   status.addFloat64(orot)
   
-  cWriter.send(status, myConnection)
+  toAll(status, activeConnections)
 
 def sendMove(mx, my):
   move = PyDatagram()
   move.addUint16(PACKET_MOVE)
   move.addFloat64(mx)
   move.addFloat64(my)
-  cWriter.send(move, myConnection)
+  cWriter.send(move, serverConnection)
 
 def sendScore(s1,s2):
   move = PyDatagram()
   move.addUint16(PACKET_SCORE)
   move.addInt16(s1)
   move.addInt16(s2)
-  cWriter.send(move, myConnection)
+  toAll(move, activeConnections)
 
 def setGameStatus(data):
   ballBody.setPosition((-data.getFloat64(),data.getFloat64(),-data.getFloat64()))
@@ -979,7 +1015,8 @@ def setGameStatus(data):
   kicker.setH(-data.getFloat64())
   
   
-def setOpponentMove(data):
+def setOpponentMove(data, sender=0):
+  #FIXME TODO for sender 1-2
   global omx, omy
   omx = -data.getFloat64()
   omy = -data.getFloat64()
@@ -994,7 +1031,7 @@ def setScore(data):
 ### RUN the game engine #########################################
 # unless in training mode, this won't run the main game loop yet! (physics + mouse handling)
 # this is only done when a PACKET_START is received, or the server is ready to start
-if trainingMode: 
+if mode==MODE_TRAINING: 
   startGame()
 run()
 
