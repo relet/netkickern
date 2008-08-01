@@ -523,7 +523,7 @@ def near_callback(args, geom1, geom2):
               BLOCK2 = True
               ballBody.setLinearVel((ax/3, ay, mouseAy2))
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
-      c.setMu(10)    #table has little bounce, noticeable friction
+      c.setMu(1)    #table has little bounce, noticeable friction
       c.setBounce(1.5) 
     elif (geom1 in wallGeom) or (geom2 in wallGeom):
       c.setMu(1)      #walls have ok bounce, noticeable friction
@@ -685,6 +685,8 @@ handle8 = rrow3.attachNewNode("h8")
 handle8.setPos(-10.33,0,0)
 handle8.setR(180)
 handle.instanceTo(handle8)
+
+render.setAntialias(AntialiasAttrib.MMultisample) # enable antialiasing for all objects
 
 ### Load and apply textures ############################################
 
