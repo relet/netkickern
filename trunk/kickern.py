@@ -226,7 +226,7 @@ def myProcessDataFunction(datagram):
           rename.addString(P2NAME) 
           toAll(rename, activeConnections)
           if (mode == MODE_4P): #inform players of the position they play in
-            for i in range(1,3):
+            for i in range(1,4):
               placing = PyDatagram()
               placing.addUint16(PACKET_PLACE)
               placing.addUint16(playerPrefs[i]['pos'])
@@ -543,7 +543,7 @@ def near_callback(args, geom1, geom2):
         if geom1 in kickerGeom or geom2 in kickerGeom:
           if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
             ballBody.setLinearVel((ax,ay,(az+mouseAy1)/2)) #causes some stickiness in the vertical axis
-            angle = kicker.getH()
+            angle = kicker0.getH()
             if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
               BLOCK1 = True
               ballBody.setLinearVel((ax/3, ay, mouseAy1))
@@ -601,8 +601,10 @@ render.setLight(sunp)
 
 ### LOAD and place MODELS #############################################
 
-kicker  = loader.loadModel(DATAPATH+"models/kicker.x")
-kicker2 = loader.loadModel(DATAPATH+"models/kicker.x") #FIXME: this could just as well be an instance
+kicker0 = loader.loadModel(DATAPATH+"models/kicker.x")
+kicker1 = loader.loadModel(DATAPATH+"models/kicker.x") 
+kicker2 = loader.loadModel(DATAPATH+"models/kicker.x")
+kicker3 = loader.loadModel(DATAPATH+"models/kicker.x") #FIXME: this could just as well be a single instance
 
 handle  = loader.loadModel(DATAPATH+"models/handle.x")
 blocker = loader.loadModel(DATAPATH+"models/blocker.x")
@@ -611,11 +613,14 @@ handle.setScale(1,1,.7)
 blocker.setPos(0,80,0)
 blocker.setScale(.8,.8,1)
 
-kicker.setScale(.65,.65,.65)
-kicker.setPos(0,79.5,0)
-
+kicker0.setScale(.65,.65,.65)
+kicker0.setPos(0,79.5,0)
+kicker1.setScale(.65,.65,.65)
+kicker1.setPos(0,79.5,0)
 kicker2.setScale(.65,.65,.65)
 kicker2.setPos(0,79.5,0)
+kicker3.setScale(.65,.65,.65)
+kicker3.setPos(0,79.5,0)
 
 table = loader.loadModel(DATAPATH+"models/table.x")
 table.reparentTo(render)
@@ -641,7 +646,7 @@ rrow4 = render.attachNewNode("rrow4")
 
 kickstance = row1.attachNewNode("k1")
 kickstance.setPos(-23,0,0)
-kicker.instanceTo(kickstance)
+kicker0.instanceTo(kickstance)
 handle1 = row1.attachNewNode("h1")
 handle1.setPos(-23,0,0)
 handle.instanceTo(handle1)
@@ -655,7 +660,7 @@ blocker.instanceTo(block12)
 for i in range(2):
   kickstance = row2.attachNewNode("k2")
   kickstance.setPos(-16.33,0,i*12-6)
-  kicker.instanceTo(kickstance)
+  kicker0.instanceTo(kickstance)
 handle2 = row2.attachNewNode("h2")
 handle2.setPos(-16.33,0,0)
 handle.instanceTo(handle2)
@@ -663,7 +668,7 @@ handle.instanceTo(handle2)
 for i in range(5):
   kickstance = row3.attachNewNode("k3")
   kickstance.setPos(-4,0,i*5.5-11)
-  kicker.instanceTo(kickstance)
+  kicker1.instanceTo(kickstance)
 handle3 = row3.attachNewNode("h2")
 handle3.setPos(-4,0,0)
 handle.instanceTo(handle3)
@@ -671,7 +676,7 @@ handle.instanceTo(handle3)
 for i in range(3):
   kickstance = row4.attachNewNode("k4")
   kickstance.setPos(10.33,0,i*8-8)
-  kicker.instanceTo(kickstance)
+  kicker1.instanceTo(kickstance)
 handle4 = row4.attachNewNode("h2")
 handle4.setPos(10.33,0,0)
 handle.instanceTo(handle4)
@@ -703,7 +708,7 @@ handle.instanceTo(handle6)
 for i in range(5):
   kickstance = rrow3.attachNewNode("rk3")
   kickstance.setPos(4,0,i*5.5-11)
-  kicker2.instanceTo(kickstance)
+  kicker3.instanceTo(kickstance)
 handle7 = rrow3.attachNewNode("h8")
 handle7.setPos(4,0,0)
 handle7.setR(180)
@@ -712,7 +717,7 @@ handle.instanceTo(handle7)
 for i in range(3):
   kickstance = rrow4.attachNewNode("rk4")
   kickstance.setPos(-10.33,0,i*8-8)
-  kicker2.instanceTo(kickstance)
+  kicker3.instanceTo(kickstance)
 handle8 = rrow3.attachNewNode("h8")
 handle8.setPos(-10.33,0,0)
 handle8.setR(180)
@@ -722,13 +727,17 @@ render.setAntialias(AntialiasAttrib.MMultisample) # enable antialiasing for all 
 
 ### Load and apply textures ############################################
 
-def resetGameColours(group1, group2, texture1, texture2): #TODO: make this callable at any point in time to "turn" the table
+def resetGameColours(group0, group1, group2, group3, texture1, texture2): #TODO: make this callable at any point in time to "turn" the table
   if role == ROLE_SERVER or MY_POSITION==1:
+    group0.setTexture(texture1)
     group1.setTexture(texture1)
     group2.setTexture(texture2)
+    group3.setTexture(texture2)
   else:
+    group0.setTexture(texture2)
     group1.setTexture(texture2)
     group2.setTexture(texture1)
+    group3.setTexture(texture1)
 
 texField = loader.loadTexture(DATAPATH+"textures/field2.png")
 texBande = loader.loadTexture(DATAPATH+"textures/bande_tex.png")
@@ -744,8 +753,9 @@ try:
   table.find("**/Cube_002").setTexture(texBande)
   table.find("**/Cube_005").setTexture(texBande)
 
-  resetGameColours(kicker, kicker2, texKicker, texKicker2)  
-  kicker.setR(180)
+  resetGameColours(kicker0, kicker1, kicker2, kicker3, texKicker, texKicker2)  
+  kicker0.setR(180)
+  kicker1.setR(180)
 except Exception, e:
   print texBande #good for some DEBUG output
   print e
@@ -823,23 +833,33 @@ omy =0
 oldox=0
 oldoy=0
 
-def setKickers1(x,y):  #player1
+def setKickers0(x,y):  #position 0 
   kickerZ1 = min(7.9, max(-7.9, y))
   kickerZ2 = min(7.9, max(-7.9, y))
-  kickerZ3 = min(2.9, max(-2.9, y))
-  kickerZ4 = min(5.9, max(-5.9, y))
-  kickerR = x;
-
   row1.setZ(kickerZ1)
   row2.setZ(kickerZ2)
-  row3.setZ(kickerZ3)
-  row4.setZ(kickerZ4)
-  kicker.setH(kickerR)
   
+  kickerR = x;
+  kicker0.setH(kickerR)  
+
   kickerGeom[0].setPosition((-23, KV, kickerZ1)) 
   
   kickerGeom[1].setPosition((-16.33, KV, kickerZ2+6)) 
   kickerGeom[2].setPosition((-16.33, KV, kickerZ2-6)) 
+
+  sina = sin(kickerR * pi / 180)
+  cosa = cos(kickerR * pi / 180)
+  for i in range(0,3):
+    kickerGeom[i].setRotation((cosa, -sina, 0, sina, cosa, 0, 0, 0, 1)) # yaw rotation matrix
+
+def setKickers1(x,y):  #position 1
+  kickerZ3 = min(2.9, max(-2.9, y))
+  kickerZ4 = min(5.9, max(-5.9, y))
+  row3.setZ(kickerZ3)
+  row4.setZ(kickerZ4)
+  
+  kickerR = x;
+  kicker1.setH(kickerR) 
 
   kickerGeom[3].setPosition((-4, KV, kickerZ3-11)) 
   kickerGeom[4].setPosition((-4, KV, kickerZ3-5.5)) 
@@ -853,27 +873,36 @@ def setKickers1(x,y):  #player1
 
   sina = sin(kickerR * pi / 180)
   cosa = cos(kickerR * pi / 180)
-  for i in range(11):
+  for i in range(3,11):
     kickerGeom[i].setRotation((cosa, -sina, 0, sina, cosa, 0, 0, 0, 1)) # yaw rotation matrix
 
-def setKickers2(x,y):  #player2
+def setKickers2(x,y):  #position 2
   kicker2Z1 = min(7.9, max(-7.9, y))
   kicker2Z2 = min(7.9, max(-7.9, y))
-  kicker2Z3 = min(2.9, max(-2.9, y))
-  kicker2Z4 = min(5.9, max(-5.9, y))
-  kicker2R = x;
-
-  rrow1.setZ(kicker2Z1) #no effect currently
+  rrow1.setZ(kicker2Z1) 
   rrow2.setZ(kicker2Z2)
-  rrow3.setZ(kicker2Z3)
-  rrow4.setZ(kicker2Z4)
+  
+  kicker2R = x;
   kicker2.setH(kicker2R)
-
-  #player2
+  
   kickerGeom2[0].setPosition((23, KV, kicker2Z1)) 
 
   kickerGeom2[1].setPosition((16.33, KV, kicker2Z2+6)) 
   kickerGeom2[2].setPosition((16.33, KV, kicker2Z2-6)) 
+  
+  sina = sin(kicker2R * pi / 180)
+  cosa = cos(kicker2R * pi / 180)
+  for i in range(0,3):
+    kickerGeom2[i].setRotation((cosa, -sina, 0, sina, cosa, 0, 0, 0, 1)) # yaw rotation matrix
+
+def setKickers3(x,y):  #position 3
+  kicker2Z3 = min(2.9, max(-2.9, y))
+  kicker2Z4 = min(5.9, max(-5.9, y))
+  rrow3.setZ(kicker2Z3)
+  rrow4.setZ(kicker2Z4)
+  
+  kicker2R = x;
+  kicker3.setH(kicker2R) 
 
   kickerGeom2[3].setPosition((4, KV, kicker2Z3-11)) 
   kickerGeom2[4].setPosition((4, KV, kicker2Z3-5.5)) 
@@ -887,11 +916,13 @@ def setKickers2(x,y):  #player2
 
   sina = sin(kicker2R * pi / 180)
   cosa = cos(kicker2R * pi / 180)
-  for i in range(11):
+  for i in range(3,11):
     kickerGeom2[i].setRotation((cosa, -sina, 0, sina, cosa, 0, 0, 0, 1)) # yaw rotation matrix
 
+setKickers0(0,0)
 setKickers1(0,0)
 setKickers2(0,0)
+setKickers3(0,0)
 
 blockx1 = 0
 blockx2 = 0
@@ -930,8 +961,10 @@ def moveKickerTask(task):
       x2 = (omx * i + oldox * (STEPS-i)) / STEPS
       y2 = (omy * i + oldoy * (STEPS-i)) / STEPS
 
+      setKickers0(x,y)
       setKickers1(x,y)
       setKickers2(x2,y2)
+      setKickers3(x2,y2)
 
       BLOCK1 = False
       BLOCK2 = False
@@ -940,11 +973,13 @@ def moveKickerTask(task):
       contactgroup.empty()
 
       if BLOCK1:
+        setKickers0(blockx1,y)
         setKickers1(blockx1,y)
       else:
         blockx1 = x
       if BLOCK2:
         setKickers2(blockx2,y2)
+        setKickers3(blockx2,y2)
       else:
         blockx2 = x2
     
@@ -989,7 +1024,7 @@ def sendGameStatus():
   r1,r2,r3,r4 = row1.getZ(), row2.getZ(), row3.getZ(), row4.getZ()
   o1,o2,o3,o4 = rrow1.getZ(), rrow2.getZ(), rrow3.getZ(), rrow4.getZ()
   
-  rot, orot   = kicker.getH(), kicker2.getH()
+  rot, orot   = kicker0.getH(), kicker2.getH()
   
   status = PyDatagram()
   status.addUint16(PACKET_SET)
@@ -1043,13 +1078,17 @@ def setGameStatus(data):
   rrow2.setZ(-data.getFloat64())
   rrow3.setZ(-data.getFloat64())
   rrow4.setZ(-data.getFloat64())
-  kicker2.setH(-data.getFloat64())
+  angle = -data.getFloat64()
+  kicker2.setH(angle)
+  kicker3.setH(angle)
   
   row1.setZ(-data.getFloat64())
   row2.setZ(-data.getFloat64())
   row3.setZ(-data.getFloat64())
   row4.setZ(-data.getFloat64()) 
-  kicker.setH(-data.getFloat64())
+  angle = -data.getFloat64()
+  kicker0.setH(angle)
+  kicker1.setH(angle)
   
   
 def setOpponentMove(data, sender=0):
