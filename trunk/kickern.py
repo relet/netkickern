@@ -167,7 +167,7 @@ def myProcessDataFunction(datagram):
   global status, P1NAME, P2NAME, lastResetRequest
 
   if (role==ROLE_SERVER):
-    sender = activeConnections.index(datagram.getConnection())
+    sender = activeConnections.index(datagram.getConnection()) 
   data = PyDatagramIterator(datagram)
   #try:
   if True: #just to keep the indent 
@@ -192,7 +192,7 @@ def myProcessDataFunction(datagram):
           sys.exit(1)
         if soft != SOFTWARE_VERSION:
           print "WARNING: Client is using software "+soft+"."
-        print "Ok, client "+str(sender)+" connected."
+        print "Ok, client "+str(sender+1)+" connected."
         status = STATUS_INIT
         qpref = PyDatagram() #query for client preferences
         qpref.addUint16(PACKET_QPREF)
@@ -214,10 +214,11 @@ def myProcessDataFunction(datagram):
           if (teamname == TEAMNAME) or (place==-1):
             if not POSITION[1]:
               place = 1
-          POSITION[place]=sender
+          print "placed player ", sender+1, " at position ", place
+          POSITION[place]=sender+1
           prefs['pos'] = place
         playerPrefs[sender]=prefs
-        if (mode == MODE_2P) or (playerPrefs.has_key(0) and playerPrefs.hasKey(1) and playerPrefs.hasKey(2)):
+        if (mode == MODE_2P) or (0 in playerPrefs and 1 in playerPrefs and 2 in playerPrefs):
           P1NAME = TEAMNAME
           P2NAME = playerPrefs[0]['team']
           rename = PyDatagram() 
@@ -226,7 +227,7 @@ def myProcessDataFunction(datagram):
           rename.addString(P2NAME) 
           toAll(rename, activeConnections)
           if (mode == MODE_4P): #inform players of the position they play in
-            for i in range(1,4):
+            for i in range(0,3):
               placing = PyDatagram()
               placing.addUint16(PACKET_PLACE)
               placing.addUint16(playerPrefs[i]['pos'])
