@@ -40,30 +40,31 @@ PACKET_QPREF = 10  # query for client preferences
 PACKET_PREF  = 11  # reply with client preferences
 PACKET_ROLE  = 12  # assign a client role
 PACKET_NAME  = 13  # name a team
+PACKET_PLACE = 14  # place a player at another position on the table (0-3)
 
 PACKET_RESET = 20  # suggest to reset ball position
 PACKET_MSG   = 21  # send a custom message to another player
 #####################################################################
 
 MAGIC_WORD   = "kickern?"
-PROTOCOL_VERSION = 8                              # to be increased with each protocol change
+PROTOCOL_VERSION = 9                              # to be increased with each protocol change
 SOFTWARE_VERSION = "svn"+'$Revision$'[11:-2] # automatically set by subversion on checkout
 
 ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
 
-STATUS_CONF  = 0 # currently not used (FIXME: delete or use)
-STATUS_INIT  = 1 # currently not used
-STATUS_LIVE  = 2 # currently not used
+STATUS_CONF  = 0   # currently not used (FIXME: delete or use)
+STATUS_INIT  = 1   # currently not used
+STATUS_LIVE  = 2   # currently not used
 
 COLCAT_BALL   = 1  # arbitrary category bit. used to determine who can collide with whom. This is the ball - default category
 COLCAT_WALL   = 2  # arbitrary category bit. used to determine who can collide with whom. 
 COLCAT_KICKER = 4  # arbitrary category bit. used to determine who can collide with whom. 
 COLCAT_FIELD  = 8  # arbitrary category bit. used to determine who can collide with whom. 
 
-MODE_TRAINING = 1 #Training mode. No network communication, player controls all handles 
-MODE_2P       = 2 #2P network mode. Each player controls four handles.
-MODE_4P       = 3 #4P network mode. Each player controls two handles.
+MODE_TRAINING = 1  # Training mode. No network communication, player controls all handles 
+MODE_2P       = 2  # 2P network mode. Each player controls four handles.
+MODE_4P       = 3  # 4P network mode. Each player controls two handles.
 
 mode = MODE_2P
 
@@ -71,6 +72,17 @@ lastResetRequest = 0 # timestamp: partner requested reset via UDP
 lastResetPress   = 0 # timestamp: player requested reset via key press
 
 playerPrefs = {}
+# shall contain per player preferences. currently:
+# team      - team name
+# pos       - position on the table
+# lastReset - last reset request
+####
+POSITION = [0]+[None]*3
+# Players on this position in 4P mode, 0 = server, 1-3 = clients according to connection order on server side
+# TEAM 2: 3   2  (index 0, 2 is defense)
+#         TABLE  (index 1, 3 is offense)
+# TEAM 1: 0   1 
+MY_POSITION = 0
 
 print "Debug information:"
 print "  You are using software revision "+SOFTWARE_VERSION
@@ -192,6 +204,18 @@ def myProcessDataFunction(datagram):
         prefs = {}
         teamname = data.getString()
         prefs['team']=teamname
+        place = -1
+        if (mode == MODE_4P):
+          #assign the last free position, and P1 only if the teamname matches or everything else is given away
+          if not POSITION[3]:
+            place = 3
+          if not POSITION[2]:
+            place = 2
+          if (teamname == TEAMNAME) or (place==-1):
+            if not POSITION[1]:
+              place = 1
+          POSITION[place]=sender
+          prefs['pos'] = place
         playerPrefs[sender]=prefs
         if (mode == MODE_2P) or (playerPrefs.has_key(0) and playerPrefs.hasKey(1) and playerPrefs.hasKey(2)):
           P1NAME = TEAMNAME
@@ -201,7 +225,13 @@ def myProcessDataFunction(datagram):
           rename.addString(P1NAME) 
           rename.addString(P2NAME) 
           toAll(rename, activeConnections)
-          resetNames()           #FIXME: if 4pmode: identify all team names, reorder players according to teams
+          if (mode == MODE_4P): #inform players of the position they play in
+            for i in range(1,3):
+              placing = PyDatagram()
+              placing.addUint16(PACKET_PLACE)
+              placing.addUint16(playerPrefs[i]['pos'])
+              cWriter.send(placing, activeConnections[i])
+          resetNames()
           welcome = PyDatagram()
           welcome.addUint16(PACKET_START)
           toAll(welcome, activeConnections)
@@ -241,6 +271,8 @@ def myProcessDataFunction(datagram):
         P1NAME = data.getString()
         P2NAME = data.getString()
         resetNames()
+      elif pktType==PACKET_PLACE: #4P only
+        MY_POSITION = data.getUint16()
       elif pktType==PACKET_PING:
         stime = data.getFloat64()
         pong = PyDatagram()
@@ -523,7 +555,7 @@ def near_callback(args, geom1, geom2):
               BLOCK2 = True
               ballBody.setLinearVel((ax/3, ay, mouseAy2))
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
-      c.setMu(1)    #table has little bounce, noticeable friction
+      c.setMu(4)    #table has little bounce, noticeable friction
       c.setBounce(1.5) 
     elif (geom1 in wallGeom) or (geom2 in wallGeom):
       c.setMu(1)      #walls have ok bounce, noticeable friction
@@ -690,6 +722,14 @@ render.setAntialias(AntialiasAttrib.MMultisample) # enable antialiasing for all 
 
 ### Load and apply textures ############################################
 
+def resetGameColours(group1, group2, texture1, texture2): #TODO: make this callable at any point in time to "turn" the table
+  if role == ROLE_SERVER or MY_POSITION==1:
+    group1.setTexture(texture1)
+    group2.setTexture(texture2)
+  else:
+    group1.setTexture(texture2)
+    group2.setTexture(texture1)
+
 texField = loader.loadTexture(DATAPATH+"textures/field2.png")
 texBande = loader.loadTexture(DATAPATH+"textures/bande_tex.png")
 texKicker = loader.loadTexture(DATAPATH+"textures/kicker_tex.png")
@@ -704,12 +744,7 @@ try:
   table.find("**/Cube_002").setTexture(texBande)
   table.find("**/Cube_005").setTexture(texBande)
 
-  if role == ROLE_SERVER:
-    kicker.setTexture(texKicker)
-    kicker2.setTexture(texKicker2)
-  else:
-    kicker.setTexture(texKicker2)
-    kicker2.setTexture(texKicker)
+  resetGameColours(kicker, kicker2, texKicker, texKicker2)  
   kicker.setR(180)
 except Exception, e:
   print texBande #good for some DEBUG output
