@@ -514,13 +514,13 @@ for geom in kickerGeom+kickerGeom2:
   geom.setCategoryBits(COLCAT_KICKER)
   geom.setCollideBits (0) #one way suffices
 
-BLOCK1 = False
-BLOCK2 = False
+BLOCK = [False]*4
 
 #called = 0
 
 def near_callback(args, geom1, geom2):
-  global BLOCK1, BLOCK2, kicker, kicker2
+  ##TODO: 4P generalization
+  global BLOCK, kicker
   #global called
   
   #called = called + 1
@@ -602,10 +602,11 @@ render.setLight(sunp)
 
 ### LOAD and place MODELS #############################################
 
-kicker0 = loader.loadModel(DATAPATH+"models/kicker.x")
-kicker1 = loader.loadModel(DATAPATH+"models/kicker.x") 
-kicker2 = loader.loadModel(DATAPATH+"models/kicker.x")
-kicker3 = loader.loadModel(DATAPATH+"models/kicker.x") #FIXME: this could just as well be a single instance
+kicker=[]
+for i in range(0,4):
+  kicker[i] = loader.loadModel(DATAPATH+"models/kicker.x") #FIXME: this could just as well be a single instance
+  kicker[i].setScale(.65,.65,.65)
+  kicker[i].setPos(0,79.5,0)
 
 handle  = loader.loadModel(DATAPATH+"models/handle.x")
 blocker = loader.loadModel(DATAPATH+"models/blocker.x")
@@ -613,15 +614,6 @@ handle.setPos(0,80,0)
 handle.setScale(1,1,.7)
 blocker.setPos(0,80,0)
 blocker.setScale(.8,.8,1)
-
-kicker0.setScale(.65,.65,.65)
-kicker0.setPos(0,79.5,0)
-kicker1.setScale(.65,.65,.65)
-kicker1.setPos(0,79.5,0)
-kicker2.setScale(.65,.65,.65)
-kicker2.setPos(0,79.5,0)
-kicker3.setScale(.65,.65,.65)
-kicker3.setPos(0,79.5,0)
 
 table = loader.loadModel(DATAPATH+"models/table.x")
 table.reparentTo(render)
@@ -647,7 +639,7 @@ rrow4 = render.attachNewNode("rrow4")
 
 kickstance = row1.attachNewNode("k1")
 kickstance.setPos(-23,0,0)
-kicker0.instanceTo(kickstance)
+kicker[0].instanceTo(kickstance)
 handle1 = row1.attachNewNode("h1")
 handle1.setPos(-23,0,0)
 handle.instanceTo(handle1)
@@ -661,7 +653,7 @@ blocker.instanceTo(block12)
 for i in range(2):
   kickstance = row2.attachNewNode("k2")
   kickstance.setPos(-16.33,0,i*12-6)
-  kicker0.instanceTo(kickstance)
+  kicker[0].instanceTo(kickstance)
 handle2 = row2.attachNewNode("h2")
 handle2.setPos(-16.33,0,0)
 handle.instanceTo(handle2)
@@ -669,7 +661,7 @@ handle.instanceTo(handle2)
 for i in range(5):
   kickstance = row3.attachNewNode("k3")
   kickstance.setPos(-4,0,i*5.5-11)
-  kicker1.instanceTo(kickstance)
+  kicker[1].instanceTo(kickstance)
 handle3 = row3.attachNewNode("h2")
 handle3.setPos(-4,0,0)
 handle.instanceTo(handle3)
@@ -677,14 +669,14 @@ handle.instanceTo(handle3)
 for i in range(3):
   kickstance = row4.attachNewNode("k4")
   kickstance.setPos(10.33,0,i*8-8)
-  kicker1.instanceTo(kickstance)
+  kicker[1].instanceTo(kickstance)
 handle4 = row4.attachNewNode("h2")
 handle4.setPos(10.33,0,0)
 handle.instanceTo(handle4)
 
 kickstance = rrow1.attachNewNode("rk1")
 kickstance.setPos(23,0,0)
-kicker2.instanceTo(kickstance)
+kicker[2].instanceTo(kickstance)
 handle5 = rrow1.attachNewNode("h5")
 handle5.setPos(23,0,0)
 handle5.setR(180)
@@ -700,7 +692,7 @@ blocker.instanceTo(block22)
 for i in range(2):
   kickstance = rrow2.attachNewNode("rk2")
   kickstance.setPos(16.33,0,i*12-6)
-  kicker2.instanceTo(kickstance)
+  kicker[2].instanceTo(kickstance)
 handle6 = rrow2.attachNewNode("h6")
 handle6.setPos(16.33,0,0)
 handle6.setR(180)
@@ -709,7 +701,7 @@ handle.instanceTo(handle6)
 for i in range(5):
   kickstance = rrow3.attachNewNode("rk3")
   kickstance.setPos(4,0,i*5.5-11)
-  kicker3.instanceTo(kickstance)
+  kicker[3].instanceTo(kickstance)
 handle7 = rrow3.attachNewNode("h8")
 handle7.setPos(4,0,0)
 handle7.setR(180)
@@ -718,7 +710,7 @@ handle.instanceTo(handle7)
 for i in range(3):
   kickstance = rrow4.attachNewNode("rk4")
   kickstance.setPos(-10.33,0,i*8-8)
-  kicker3.instanceTo(kickstance)
+  kicker[3].instanceTo(kickstance)
 handle8 = rrow3.attachNewNode("h8")
 handle8.setPos(-10.33,0,0)
 handle8.setR(180)
@@ -825,14 +817,22 @@ except:
 ### SET UP Mouse control #############################################
 base.disableMouse()
 
-global oldx, oldy
-oldx=0
-oldy=0
+#global oldx, oldy
+mx =[0]*4  #mouse positions
+my =[0]*4
+oldx=[0]*4 #previous positions
+oldy=[0]*4
 
-omx =0 #opponent
-omy =0
-oldox=0
-oldoy=0
+def setKickers(pos,x,y):  #TODO: clean up code when this is tested
+  if pos==0:
+    setKickers0(x,y)
+  elif pos==1:
+    setKickers1(x,y)
+  elif pos==2:
+    setKickers2(x,y)
+  elif pos==3:
+    setKickers3(x,y)
+  #ouch!
 
 def setKickers0(x,y):  #position 0 
   kickerZ1 = min(7.9, max(-7.9, y))
@@ -927,24 +927,25 @@ setKickers3(0,0)
 
 blockx1 = 0
 blockx2 = 0
+
 def moveKickerTask(task):
-  global oldx, oldy, omx, omy, oldox, oldoy, p1score, p2score
-  global BLOCK1, BLOCK2, blockx1, blockx2
-  global mouseAy1, mouseAy2
+  global oldx, oldy, mx, my, p1score, p2score
+  global BLOCK, blockx
+  global mouseAy
   #global called
   
   if base.mouseWatcherNode.hasMouse():
-    mx=base.mouseWatcherNode.getMouseX() * MOUSEX_SPEED
-    my=base.mouseWatcherNode.getMouseY() * MOUSEY_SPEED
+    mx[MY_POSITION]=base.mouseWatcherNode.getMouseX() * MOUSEX_SPEED
+    my[MY_POSITION]=base.mouseWatcherNode.getMouseY() * MOUSEY_SPEED
   else:
-    mx=oldx
-    my=oldy
+    mx[MY_POSITION]=oldx[MY_POSITION]
+    my[MY_POSITION]=oldy[MY_POSITION]
     
   if mode==MODE_TRAINING:
-    omx, omy = mx, my
+    mx[1], my[1] = mx[0], my[0]
     
   if role == ROLE_CLIENT:
-    sendMove(mx, my)
+    sendMove(mx[MY_POSITION], my[MY_POSITION])
 
   if role == ROLE_SERVER:
     if task.frame==0:
@@ -954,37 +955,29 @@ def moveKickerTask(task):
     if dt==0: 
       dt = 0.01
   
-    mouseAy1 = (my-oldy)   / STEPS * Y_STICKINESS
-    mouseAy2 = (omy-oldoy) / STEPS * Y_STICKINESS
-    for i in range(STEPS):
-      x = (mx * i + oldx * (STEPS-i)) / STEPS
-      y = (my * i + oldy * (STEPS-i)) / STEPS
-      x2 = (omx * i + oldox * (STEPS-i)) / STEPS
-      y2 = (omy * i + oldoy * (STEPS-i)) / STEPS
+    step = STEPS * Y_STICKINESS
+    for i in range(0,4):
+      mouseAy[i]=(my[i]-oldy[i]) / step
+      for i in range(STEPS):
+        x[i] = (mx[i] * i + oldx[i] * (STEPS-i)) / STEPS
+        y[i] = (my[i] * i + oldy[i] * (STEPS-i)) / STEPS
 
-      setKickers0(x,y)
-      setKickers1(x,y)
-      setKickers2(x2,y2)
-      setKickers3(x2,y2)
+    setKickers0(x[0],y[0])
+    setKickers1(x[1],y[1])
+    setKickers2(x[2],y[2])
+    setKickers3(x[3],y[3])
 
-      BLOCK1 = False
-      BLOCK2 = False
-      space.collide((world, contactgroup), near_callback)
-      world.step(dt/10)
-      contactgroup.empty()
-
-      if BLOCK1:
-        setKickers0(blockx1,y)
-        setKickers1(blockx1,y)
-      else:
-        blockx1 = x
-      if BLOCK2:
-        setKickers2(blockx2,y2)
-        setKickers3(blockx2,y2)
-      else:
-        blockx2 = x2
+    BLOCK = [False]*4
     
-  #print "collision/frame: " + str(called/task.frame)
+    space.collide((world, contactgroup), near_callback)
+    world.step(dt/10)
+    contactgroup.empty()
+
+    for i in range(0,4):
+      if BLOCK[i]:
+        setKickers(i,blockx[i],y)
+      else:
+        blockx[i] = x
     
   px,py,pz = ballBody.getPosition()
   rot      = ballBody.getRotation() 
@@ -993,10 +986,8 @@ def moveKickerTask(task):
   gpos     = VBase3 (px,py,pz)
   ball.setPosQuat (gpos, gquat)
   
-  oldx=mx
-  oldy=my
-  oldox = omx
-  oldoy = omy
+  oldx=mx[:]
+  oldy=my[:]
 
   ### CHECK FOR GOALS / OUTS ###############
   if (px<-28) or (px>28):
@@ -1025,7 +1016,9 @@ def sendGameStatus():
   r1,r2,r3,r4 = row1.getZ(), row2.getZ(), row3.getZ(), row4.getZ()
   o1,o2,o3,o4 = rrow1.getZ(), rrow2.getZ(), rrow3.getZ(), rrow4.getZ()
   
-  rot, orot   = kicker0.getH(), kicker2.getH()
+  rot = []
+  for i in range(0,4):
+    rot[i] = kicker[i].getH()
   
   status = PyDatagram()
   status.addUint16(PACKET_SET)
@@ -1040,19 +1033,22 @@ def sendGameStatus():
   status.addFloat64(r2)
   status.addFloat64(r3)
   status.addFloat64(r4)
-  status.addFloat64(rot)
   
   status.addFloat64(o1)
   status.addFloat64(o2)
   status.addFloat64(o3)
   status.addFloat64(o4)
-  status.addFloat64(orot)
+
+  for i in range(0,4):
+    status.addFloat64(rot)
   
   toAll(status, activeConnections)
 
 def sendMove(mx, my):
   move = PyDatagram()
   move.addUint16(PACKET_MOVE)
+  if MY_POSITION > 1:
+    mx, my = -mx, -my
   move.addFloat64(mx)
   move.addFloat64(my)
   cWriter.send(move, serverConnection)
@@ -1079,24 +1075,20 @@ def setGameStatus(data):
   rrow2.setZ(-data.getFloat64())
   rrow3.setZ(-data.getFloat64())
   rrow4.setZ(-data.getFloat64())
-  angle = -data.getFloat64()
-  kicker2.setH(angle)
-  kicker3.setH(angle)
   
   row1.setZ(-data.getFloat64())
   row2.setZ(-data.getFloat64())
   row3.setZ(-data.getFloat64())
   row4.setZ(-data.getFloat64()) 
-  angle = -data.getFloat64()
-  kicker0.setH(angle)
-  kicker1.setH(angle)
-  
+
+  for i in range(0,4):
+    angle = -data.getFloat64()
+    kicker[i].setH(angle)  
   
 def setOpponentMove(data, sender=0):
-  #FIXME TODO for sender 1-2
-  global omx, omy
-  omx = -data.getFloat64()
-  omy = -data.getFloat64()
+  global mx, my
+  mx[i] = data.getFloat64()
+  my[i] = data.getFloat64()
   
 def setScore(data):
   global p1score, p2score
