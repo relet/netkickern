@@ -64,7 +64,7 @@ COLCAT_FIELD  = 8  # arbitrary category bit. used to determine who can collide w
 
 MODE_TRAINING = 1  # Training mode. No network communication, player controls all handles 
 MODE_2P       = 2  # 2P network mode. Each player controls four handles.
-MODE_4P       = 3  # 4P network mode. Each player controls two handles.
+MODE_4P       = 4  # 4P network mode. Each player controls two handles.
 
 mode = MODE_2P
 
@@ -165,7 +165,7 @@ def pingTask(task):
 
 def myProcessDataFunction(datagram):
   global status, P1NAME, P2NAME, lastResetRequest
-  global MY_POSITION, kicker, texKicker, texKicker2
+  global MY_POSITION, kicker, texKicker, texKicker2, mode
 
   if (role==ROLE_SERVER):
     sender = activeConnections.index(datagram.getConnection()) 
@@ -275,6 +275,7 @@ def myProcessDataFunction(datagram):
         resetNames()
       elif pktType==PACKET_PLACE: #4P only
         MY_POSITION = data.getUint16()
+        mode = MODE_4P
         resetGameColours(kicker, texKicker, texKicker2)  
       elif pktType==PACKET_PING:
         stime = data.getFloat64()
@@ -722,7 +723,7 @@ render.setAntialias(AntialiasAttrib.MMultisample) # enable antialiasing for all 
 ### Load and apply textures ############################################
 
 def resetGameColours(kickers, texture1, texture2): #TODO: make this callable at any point in time to "turn" the table
-  if role == ROLE_SERVER or MY_POSITION==1:
+  if role == ROLE_SERVER or MY_POSITION == 1:
     kickers[0].setTexture(texture1)
     kickers[1].setTexture(texture1)
     kickers[2].setTexture(texture2)
@@ -1064,6 +1065,7 @@ def sendScore(s1,s2):
 
 def setGameStatus(data):
   sgn = (mode == MODE_2P or MY_POSITION>1) and -1 or 1
+  #print "sgn",sgn,MY_POSITION,mode
   ballBody.setPosition((sgn*data.getFloat64(),data.getFloat64(),sgn*data.getFloat64()))
   ballBody.setRotation((data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64())) #would we need to mirror this somehow? 
   
@@ -1074,7 +1076,7 @@ def setGameStatus(data):
   gpos     = VBase3 (px,py,pz)
   ball.setPosQuat (gpos, gquat) 
   
-  if (sgn==-1): #TODO: Clean up this if block
+  if (sgn==-1): #TODO: Clean up this if-block
     rrow1.setZ(-data.getFloat64())
     rrow2.setZ(-data.getFloat64())
     rrow3.setZ(-data.getFloat64())
@@ -1103,11 +1105,11 @@ def setGameStatus(data):
       angle = data.getFloat64()
       kicker[i].setH(angle)
   
-def setOpponentMove(data, sender=0):
+def setOpponentMove(data, sender):
   global mx, my
   if (mode == MODE_4P):
-    mx[i] = data.getFloat64()
-    my[i] = data.getFloat64()
+    mx[sender] = data.getFloat64()
+    my[sender] = data.getFloat64()
   elif (mode==MODE_2P):
     mx[3] = mx[2] = data.getFloat64()
     my[3] = my[2] = data.getFloat64()
