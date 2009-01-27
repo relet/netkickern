@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 print """
-  netkickern - Copyright (C) 2008 Thomas Hirsch
+  netkickern - by Thomas Hirsch 2008-2009
   This program comes with ABSOLUTELY NO WARRANTY;
   This is free software, and you are welcome to redistribute it under the
   conditions of the GNU General Public Licence version 3 (GPLv3)
@@ -53,9 +53,9 @@ SOFTWARE_VERSION = "svn"+'$Revision$'[11:-2] # automatically set by subversion o
 ROLE_SERVER  = 1
 ROLE_CLIENT  = 2
 
-STATUS_CONF  = 0   # currently not used (FIXME: delete or use)
-STATUS_INIT  = 1   # currently not used
-STATUS_LIVE  = 2   # currently not used
+STATUS_CONF  = 0   #TODO: use this to implement proper protocol states
+STATUS_INIT  = 1
+STATUS_LIVE  = 2 
 
 COLCAT_BALL   = 1  # arbitrary category bit. used to determine who can collide with whom. This is the ball - default category
 COLCAT_WALL   = 2  # arbitrary category bit. used to determine who can collide with whom. 
@@ -722,7 +722,7 @@ render.setAntialias(AntialiasAttrib.MMultisample) # enable antialiasing for all 
 
 ### Load and apply textures ############################################
 
-def resetGameColours(kickers, texture1, texture2): #TODO: make this callable at any point in time to "turn" the table
+def resetGameColours(kickers, texture1, texture2):
   if role == ROLE_SERVER or MY_POSITION == 1:
     kickers[0].setTexture(texture1)
     kickers[1].setTexture(texture1)
