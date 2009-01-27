@@ -165,6 +165,7 @@ def pingTask(task):
 
 def myProcessDataFunction(datagram):
   global status, P1NAME, P2NAME, lastResetRequest
+  global MY_POSITION, kicker, texKicker, texKicker2
 
   if (role==ROLE_SERVER):
     sender = activeConnections.index(datagram.getConnection()) 
@@ -178,7 +179,7 @@ def myProcessDataFunction(datagram):
       setMessage(msg, timer)
     elif role==ROLE_SERVER: # packets received only by server
       if pktType==PACKET_MOVE:
-        setOpponentMove(data, sender)
+        setOpponentMove(data, sender+1)
       elif pktType==PACKET_HELLO:
         magic = data.getString()
         proto = data.getUint16()
@@ -274,6 +275,7 @@ def myProcessDataFunction(datagram):
         resetNames()
       elif pktType==PACKET_PLACE: #4P only
         MY_POSITION = data.getUint16()
+        resetGameColours(kicker, texKicker, texKicker2)  
       elif pktType==PACKET_PING:
         stime = data.getFloat64()
         pong = PyDatagram()
@@ -515,12 +517,11 @@ for geom in kickerGeom+kickerGeom2:
   geom.setCollideBits (0) #one way suffices
 
 BLOCK = [False]*4
-
-#called = 0
+mouseAy = [0]*4
 
 def near_callback(args, geom1, geom2):
   ##TODO: 4P generalization
-  global BLOCK, kicker
+  global BLOCK, kicker, mouseAy
   #global called
   
   #called = called + 1
@@ -543,18 +544,18 @@ def near_callback(args, geom1, geom2):
         px, py, pz = c.getContactGeomParams()[0]
         if geom1 in kickerGeom or geom2 in kickerGeom:
           if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
-            ballBody.setLinearVel((ax,ay,(az+mouseAy1)/2)) #causes some stickiness in the vertical axis
-            angle = kicker0.getH()
+            ballBody.setLinearVel((ax,ay,(az+mouseAy[0])/2)) #causes some stickiness in the vertical axis
+            angle = kicker[0].getH()
             if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
               BLOCK1 = True
-              ballBody.setLinearVel((ax/3, ay, mouseAy1))
+              ballBody.setLinearVel((ax/3, ay, mouseAy[0]))
         else:
           if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
-            ballBody.setLinearVel((ax, ay, (az+mouseAy2)/2)) #causes some stickiness in the vertical axis
-            angle = kicker2.getH()
+            ballBody.setLinearVel((ax, ay, (az+mouseAy[2])/2)) #causes some stickiness in the vertical axis
+            angle = kicker[2].getH()
             if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
               BLOCK2 = True
-              ballBody.setLinearVel((ax/3, ay, mouseAy2))
+              ballBody.setLinearVel((ax/3, ay, mouseAy[2]))
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
       c.setMu(4)    #table has little bounce, noticeable friction
       c.setBounce(1.5) 
@@ -602,7 +603,7 @@ render.setLight(sunp)
 
 ### LOAD and place MODELS #############################################
 
-kicker=[]
+kicker=[None]*4
 for i in range(0,4):
   kicker[i] = loader.loadModel(DATAPATH+"models/kicker.x") #FIXME: this could just as well be a single instance
   kicker[i].setScale(.65,.65,.65)
@@ -720,17 +721,17 @@ render.setAntialias(AntialiasAttrib.MMultisample) # enable antialiasing for all 
 
 ### Load and apply textures ############################################
 
-def resetGameColours(group0, group1, group2, group3, texture1, texture2): #TODO: make this callable at any point in time to "turn" the table
+def resetGameColours(kickers, texture1, texture2): #TODO: make this callable at any point in time to "turn" the table
   if role == ROLE_SERVER or MY_POSITION==1:
-    group0.setTexture(texture1)
-    group1.setTexture(texture1)
-    group2.setTexture(texture2)
-    group3.setTexture(texture2)
+    kickers[0].setTexture(texture1)
+    kickers[1].setTexture(texture1)
+    kickers[2].setTexture(texture2)
+    kickers[3].setTexture(texture2)
   else:
-    group0.setTexture(texture2)
-    group1.setTexture(texture2)
-    group2.setTexture(texture1)
-    group3.setTexture(texture1)
+    kickers[0].setTexture(texture2)
+    kickers[1].setTexture(texture2)
+    kickers[2].setTexture(texture1)
+    kickers[3].setTexture(texture1)
 
 texField = loader.loadTexture(DATAPATH+"textures/field2.png")
 texBande = loader.loadTexture(DATAPATH+"textures/bande_tex.png")
@@ -746,9 +747,9 @@ try:
   table.find("**/Cube_002").setTexture(texBande)
   table.find("**/Cube_005").setTexture(texBande)
 
-  resetGameColours(kicker0, kicker1, kicker2, kicker3, texKicker, texKicker2)  
-  kicker0.setR(180)
-  kicker1.setR(180)
+  resetGameColours(kicker, texKicker, texKicker2)  
+  kicker[0].setR(180)
+  kicker[1].setR(180)
 except Exception, e:
   print texBande #good for some DEBUG output
   print e
@@ -841,7 +842,7 @@ def setKickers0(x,y):  #position 0
   row2.setZ(kickerZ2)
   
   kickerR = x;
-  kicker0.setH(kickerR)  
+  kicker[0].setH(kickerR)  
 
   kickerGeom[0].setPosition((-23, KV, kickerZ1)) 
   
@@ -860,7 +861,7 @@ def setKickers1(x,y):  #position 1
   row4.setZ(kickerZ4)
   
   kickerR = x;
-  kicker1.setH(kickerR) 
+  kicker[1].setH(kickerR) 
 
   kickerGeom[3].setPosition((-4, KV, kickerZ3-11)) 
   kickerGeom[4].setPosition((-4, KV, kickerZ3-5.5)) 
@@ -884,7 +885,7 @@ def setKickers2(x,y):  #position 2
   rrow2.setZ(kicker2Z2)
   
   kicker2R = x;
-  kicker2.setH(kicker2R)
+  kicker[2].setH(kicker2R)
   
   kickerGeom2[0].setPosition((23, KV, kicker2Z1)) 
 
@@ -903,7 +904,7 @@ def setKickers3(x,y):  #position 3
   rrow4.setZ(kicker2Z4)
   
   kicker2R = x;
-  kicker3.setH(kicker2R) 
+  kicker[3].setH(kicker2R) 
 
   kickerGeom2[3].setPosition((4, KV, kicker2Z3-11)) 
   kickerGeom2[4].setPosition((4, KV, kicker2Z3-5.5)) 
@@ -925,8 +926,7 @@ setKickers1(0,0)
 setKickers2(0,0)
 setKickers3(0,0)
 
-blockx1 = 0
-blockx2 = 0
+blockx=[0]*4
 
 def moveKickerTask(task):
   global oldx, oldy, mx, my, p1score, p2score
@@ -942,12 +942,16 @@ def moveKickerTask(task):
     my[MY_POSITION]=oldy[MY_POSITION]
     
   if mode==MODE_TRAINING:
-    mx[1], my[1] = mx[0], my[0]
+    for i in range(1,4):
+      mx[i], my[i] = mx[0], my[0]
     
   if role == ROLE_CLIENT:
     sendMove(mx[MY_POSITION], my[MY_POSITION])
 
   if role == ROLE_SERVER:
+    if mode==MODE_2P:
+      mx[1], my[1] = mx[0], my[0]
+      
     if task.frame==0:
       dt = task.time
     else:
@@ -956,28 +960,27 @@ def moveKickerTask(task):
       dt = 0.01
   
     step = STEPS * Y_STICKINESS
+    x=[0]*4
+    y=[0]*4
     for i in range(0,4):
       mouseAy[i]=(my[i]-oldy[i]) / step
-      for i in range(STEPS):
-        x[i] = (mx[i] * i + oldx[i] * (STEPS-i)) / STEPS
-        y[i] = (my[i] * i + oldy[i] * (STEPS-i)) / STEPS
+    for j in range(STEPS):
+      for i in range(0,4):
+        x = (mx[i] * j + oldx[i] * (STEPS-j)) / STEPS
+        y = (my[i] * j + oldy[i] * (STEPS-j)) / STEPS
 
-    setKickers0(x[0],y[0])
-    setKickers1(x[1],y[1])
-    setKickers2(x[2],y[2])
-    setKickers3(x[3],y[3])
+        setKickers(i,x,y)
 
-    BLOCK = [False]*4
-    
-    space.collide((world, contactgroup), near_callback)
-    world.step(dt/10)
-    contactgroup.empty()
+      BLOCK = [False]*4
+      space.collide((world, contactgroup), near_callback)
+      world.step(dt/10)
+      contactgroup.empty()
 
-    for i in range(0,4):
-      if BLOCK[i]:
-        setKickers(i,blockx[i],y)
-      else:
-        blockx[i] = x
+      for i in range(0,4):
+        if BLOCK[i]:
+          setKickers(i,blockx[i],y)
+        else:
+          blockx[i] = x
     
   px,py,pz = ballBody.getPosition()
   rot      = ballBody.getRotation() 
@@ -1016,7 +1019,7 @@ def sendGameStatus():
   r1,r2,r3,r4 = row1.getZ(), row2.getZ(), row3.getZ(), row4.getZ()
   o1,o2,o3,o4 = rrow1.getZ(), rrow2.getZ(), rrow3.getZ(), rrow4.getZ()
   
-  rot = []
+  rot = [None]*4
   for i in range(0,4):
     rot[i] = kicker[i].getH()
   
@@ -1040,17 +1043,16 @@ def sendGameStatus():
   status.addFloat64(o4)
 
   for i in range(0,4):
-    status.addFloat64(rot)
+    status.addFloat64(rot[i])
   
   toAll(status, activeConnections)
 
 def sendMove(mx, my):
   move = PyDatagram()
   move.addUint16(PACKET_MOVE)
-  if MY_POSITION > 1:
-    mx, my = -mx, -my
-  move.addFloat64(mx)
-  move.addFloat64(my)
+  sgn = (mode == MODE_2P or MY_POSITION>1) and -1 or 1
+  move.addFloat64(sgn*mx)
+  move.addFloat64(sgn*my)
   cWriter.send(move, serverConnection)
 
 def sendScore(s1,s2):
@@ -1061,7 +1063,8 @@ def sendScore(s1,s2):
   toAll(move, activeConnections)
 
 def setGameStatus(data):
-  ballBody.setPosition((-data.getFloat64(),data.getFloat64(),-data.getFloat64()))
+  sgn = (mode == MODE_2P or MY_POSITION>1) and -1 or 1
+  ballBody.setPosition((sgn*data.getFloat64(),data.getFloat64(),sgn*data.getFloat64()))
   ballBody.setRotation((data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64(),data.getFloat64())) #would we need to mirror this somehow? 
   
   px,py,pz = ballBody.getPosition() #FIXME: write this directly to ball, not ballBody. 
@@ -1071,24 +1074,43 @@ def setGameStatus(data):
   gpos     = VBase3 (px,py,pz)
   ball.setPosQuat (gpos, gquat) 
   
-  rrow1.setZ(-data.getFloat64())
-  rrow2.setZ(-data.getFloat64())
-  rrow3.setZ(-data.getFloat64())
-  rrow4.setZ(-data.getFloat64())
+  if (sgn==-1): #TODO: Clean up this if block
+    rrow1.setZ(-data.getFloat64())
+    rrow2.setZ(-data.getFloat64())
+    rrow3.setZ(-data.getFloat64())
+    rrow4.setZ(-data.getFloat64())
   
-  row1.setZ(-data.getFloat64())
-  row2.setZ(-data.getFloat64())
-  row3.setZ(-data.getFloat64())
-  row4.setZ(-data.getFloat64()) 
+    row1.setZ(-data.getFloat64())
+    row2.setZ(-data.getFloat64())
+    row3.setZ(-data.getFloat64())
+    row4.setZ(-data.getFloat64()) 
+    
+    for i in range(0,4):
+      angle = -data.getFloat64()
+      kicker[(2+i)%4].setH(angle)
+  else:
+    row1.setZ(data.getFloat64())
+    row2.setZ(data.getFloat64())
+    row3.setZ(data.getFloat64())
+    row4.setZ(data.getFloat64())
+  
+    rrow1.setZ(data.getFloat64())
+    rrow2.setZ(data.getFloat64())
+    rrow3.setZ(data.getFloat64())
+    rrow4.setZ(data.getFloat64()) 
 
-  for i in range(0,4):
-    angle = -data.getFloat64()
-    kicker[i].setH(angle)  
+    for i in range(0,4):
+      angle = data.getFloat64()
+      kicker[i].setH(angle)
   
 def setOpponentMove(data, sender=0):
   global mx, my
-  mx[i] = data.getFloat64()
-  my[i] = data.getFloat64()
+  if (mode == MODE_4P):
+    mx[i] = data.getFloat64()
+    my[i] = data.getFloat64()
+  elif (mode==MODE_2P):
+    mx[3] = mx[2] = data.getFloat64()
+    my[3] = my[2] = data.getFloat64()
   
 def setScore(data):
   global p1score, p2score
