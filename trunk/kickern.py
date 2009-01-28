@@ -454,6 +454,7 @@ space = ode.Space()
 contactgroup = ode.JointGroup()
 
 world.setGravity((0,9.81,0))
+world.setContactSurfaceLayer(0.01)
 
 ## define ball
 ballBody = ode.Body(world)
@@ -475,9 +476,8 @@ tableGeom = ode.GeomBox(space, (56,1,32)) #trial and error
 tableGeom.setCategoryBits(COLCAT_FIELD)
 tableGeom.setCollideBits (0) #one way suffices
 
-baseheight = 82.4
-
-#tableGeom.setPosition((0,85.7,0))        #theory
+baseheight = 82.4   #trial and error
+# baseheight = 85.7 #theory
 tableGeom.setPosition((0,baseheight,0))   #trial and error
 
 #side walls
@@ -544,6 +544,8 @@ def near_callback(args, geom1, geom2):
     if (geom1 in kickerGeom) or (geom2 in kickerGeom) or (geom1 in kickerGeom2) or (geom2 in kickerGeom2):
       c.setMu(1E5)     #kickers have high friction, minimal bounce - FIXME: does not work. you still can't stop balls
       c.setBounce(1) 
+      #===================================================================================================================#
+      #replace the following line with "if True:" to skip fake ball handling
       if (geom1 in kickerGeom and geom2 in kickerGeom2) or (geom1 in kickerGeom2 and geom2 in kickerGeom2):
         pass
       else:
@@ -556,23 +558,30 @@ def near_callback(args, geom1, geom2):
             if (bx<-10):
               ballBody.setLinearVel((ax,ay,(az+mouseAy[0])/2)) #causes some stickiness in the vertical axis
               angle = kicker[0].getH()
+              if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
+                BLOCK[0] = True
+                ballBody.setLinearVel((ax/3, ay, (az+mouseAy[0])/2))
             else:
-              ballBody.setLinearVel((ax,ay,(az+mouseAy[1])/2)) #causes some stickiness in the vertical axis
+              ballBody.setLinearVel((ax,ay, (az+mouseAy[1])/2)) #causes some stickiness in the vertical axis
               angle = kicker[1].getH()
-            if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
-              BLOCK[0] = True
-              ballBody.setLinearVel((ax/3, ay, mouseAy[0]))
+              if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
+                BLOCK[1] = True
+                ballBody.setLinearVel((ax/3, ay, (az+mouseAy[1])/2))
         else:
           if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
             if (bx>10):
               ballBody.setLinearVel((ax, ay, (az+mouseAy[2])/2)) #causes some stickiness in the vertical axis
               angle = kicker[2].getH()
+              if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
+                BLOCK[2] = True
+                ballBody.setLinearVel((ax/3, ay, (az+mouseAy[2])/2))
             else:
-              ballBody.setLinearVel((ax, ay, (az+mouseAy[2])/2)) #causes some stickiness in the vertical axis
+              ballBody.setLinearVel((ax, ay, (az+mouseAy[3])/2)) #causes some stickiness in the vertical axis
               angle = kicker[3].getH()
-            if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
-              BLOCK[2] = True
-              ballBody.setLinearVel((ax/3, ay, mouseAy[2]))
+              if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
+                BLOCK[3] = True
+                ballBody.setLinearVel((ax/3, ay, (az+mouseAy[3])/2))
+      #===================================================================================================================#
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
       c.setMu(4)    #table has little bounce, noticeable friction
       c.setBounce(1.5) 
@@ -982,22 +991,24 @@ def moveKickerTask(task):
     for i in range(0,4):
       mouseAy[i]=(my[i]-oldy[i]) / step
     for j in range(STEPS):
-      for i in range(0,4):
-        x = (mx[i] * j + oldx[i] * (STEPS-j)) / STEPS
-        y = (my[i] * j + oldy[i] * (STEPS-j)) / STEPS
-
-        setKickers(i,x,y)
-
       BLOCK = [False]*4
+      x = [0]*4
+      y = [0]*4
+      for i in range(0,4):
+        x[i] = (mx[i] * j + oldx[i] * (STEPS-j)) / STEPS
+        y[i] = (my[i] * j + oldy[i] * (STEPS-j)) / STEPS
+
+        setKickers(i,x[i],y[i])
+
       space.collide((world, contactgroup), near_callback)
       world.step(dt/10)
       contactgroup.empty()
 
       for i in range(0,4):
         if BLOCK[i]:
-          setKickers(i,blockx[i],y)
+          setKickers(i,blockx[i],y[i])
         else:
-          blockx[i] = x
+          blockx[i] = x[i]
     
   px,py,pz = ballBody.getPosition()
   rot      = ballBody.getRotation() 
