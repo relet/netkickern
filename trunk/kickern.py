@@ -171,15 +171,15 @@ def myProcessDataFunction(datagram):
     sender = activeConnections.index(datagram.getConnection()) 
   data = PyDatagramIterator(datagram)
   #try:
-  if True: #just to keep the indent 
+  if True: #just to keep the indent, in case we need "try" again. 
     pktType = data.getUint16()
-    if pktType==PACKET_MSG:
-      timer = data.getUint16()
-      msg   = data.getString()
-      setMessage(msg, timer)
-    elif role==ROLE_SERVER: # packets received only by server
+    if role==ROLE_SERVER: # packets received only by server
       if pktType==PACKET_MOVE:
         setOpponentMove(data, sender+1)
+      elif pktType==PACKET_MSG:
+        timer = data.getUint16()
+        msg   = data.getString()
+        sendMessage(msg, timer) #broadcast to all
       elif pktType==PACKET_HELLO:
         magic = data.getString()
         proto = data.getUint16()
@@ -251,7 +251,7 @@ def myProcessDataFunction(datagram):
           resetRequest.addUint16(PACKET_RESET)
           #resetRequest.addUint16(sender) # TODO: tell everyone which player sent the request
           toAll(resetRequest, activeConnections) 
-          setMessage("Player "+str(sender)+" wishes to reset the ball.\nPress Space to confirm.", 3)
+          setMessage("Player "+str(sender+1)+" wishes to reset the ball.\nPress Space to confirm.", 3)
     else: # packets received only by clients
       if pktType==PACKET_SET:
         setGameStatus(data)
@@ -269,6 +269,10 @@ def myProcessDataFunction(datagram):
       elif pktType==PACKET_START:
         print "connection to game host confirmed."
         startGame()
+      elif pktType==PACKET_MSG:
+        timer = data.getUint16()
+        msg   = data.getString()
+        setMessage(msg, timer)
       elif pktType==PACKET_NAME:
         P1NAME = data.getString()
         P2NAME = data.getString()
@@ -417,14 +421,17 @@ def setMessage(text, timer):
   if timer>0:
     taskMgr.doMethodLater(timer, setMessage, 'resetMessage', extraArgs=["",0])
 
-def setAndSendMessage(text, timer):
+def sendMessage(text, timer):
   if not mode==MODE_TRAINING:
     msg = PyDatagram() #send message packet
     msg.addUint16(PACKET_MSG)
     msg.addUint16(timer)
     msg.addString(text)
-    toAll(msg, activeConnections)
-  setMessage(text, timer)
+    if role==ROLE_SERVER:
+      toAll(msg, activeConnections)
+      setMessage(text, timer)
+    else:
+      cWriter.send(msg, serverConnection)     
   
 if role==ROLE_SERVER:
   score1.setAlign(TextNode.ALeft)
@@ -543,19 +550,28 @@ def near_callback(args, geom1, geom2):
         bx, by, bz = ballBody.getPosition()
         ax, ay, az = ballBody.getLinearVel()
         px, py, pz = c.getContactGeomParams()[0]
+        angle = 0
         if geom1 in kickerGeom or geom2 in kickerGeom:
           if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
-            ballBody.setLinearVel((ax,ay,(az+mouseAy[0])/2)) #causes some stickiness in the vertical axis
-            angle = kicker[0].getH()
+            if (bx<-10):
+              ballBody.setLinearVel((ax,ay,(az+mouseAy[0])/2)) #causes some stickiness in the vertical axis
+              angle = kicker[0].getH()
+            else:
+              ballBody.setLinearVel((ax,ay,(az+mouseAy[1])/2)) #causes some stickiness in the vertical axis
+              angle = kicker[1].getH()
             if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
-              BLOCK1 = True
+              BLOCK[0] = True
               ballBody.setLinearVel((ax/3, ay, mouseAy[0]))
         else:
           if abs(pz-bz)<0.1: #if the ball touches the kicker on its left or right
-            ballBody.setLinearVel((ax, ay, (az+mouseAy[2])/2)) #causes some stickiness in the vertical axis
-            angle = kicker[2].getH()
+            if (bx>10):
+              ballBody.setLinearVel((ax, ay, (az+mouseAy[2])/2)) #causes some stickiness in the vertical axis
+              angle = kicker[2].getH()
+            else:
+              ballBody.setLinearVel((ax, ay, (az+mouseAy[2])/2)) #causes some stickiness in the vertical axis
+              angle = kicker[3].getH()
             if (by>py) and (((angle < -45) and (angle>-90)) or ((angle > 45) and (angle<90))):
-              BLOCK2 = True
+              BLOCK[2] = True
               ballBody.setLinearVel((ax/3, ay, mouseAy[2]))
     elif (geom1 == tableGeom) or (geom2 == tableGeom): 
       c.setMu(4)    #table has little bounce, noticeable friction
@@ -801,18 +817,18 @@ base.accept('arrow_down-repeat', setCamera, [5])
 base.accept('space', checkReset ) 
 base.accept('r',     checkReset ) 
 try:
-  base.accept('f1', setAndSendMessage, [messages[0],3])
-  base.accept('f2', setAndSendMessage, [messages[1],3])
-  base.accept('f3', setAndSendMessage, [messages[2],3])
-  base.accept('f4', setAndSendMessage, [messages[3],3])
-  base.accept('f5', setAndSendMessage, [messages[4],3])
-  base.accept('f6', setAndSendMessage, [messages[5],3])
-  base.accept('f7', setAndSendMessage, [messages[6],3])
-  base.accept('f8', setAndSendMessage, [messages[7],3])
-  base.accept('f9', setAndSendMessage, [messages[8],3])
-  base.accept('f10', setAndSendMessage, [messages[9],3])
-  base.accept('f11', setAndSendMessage, [messages[10],3])
-  base.accept('f12', setAndSendMessage, [messages[11],3])
+  base.accept('f1', sendMessage, [messages[0],3])
+  base.accept('f2', sendMessage, [messages[1],3])
+  base.accept('f3', sendMessage, [messages[2],3])
+  base.accept('f4', sendMessage, [messages[3],3])
+  base.accept('f5', sendMessage, [messages[4],3])
+  base.accept('f6', sendMessage, [messages[5],3])
+  base.accept('f7', sendMessage, [messages[6],3])
+  base.accept('f8', sendMessage, [messages[7],3])
+  base.accept('f9', sendMessage, [messages[8],3])
+  base.accept('f10', sendMessage, [messages[9],3])
+  base.accept('f11', sendMessage, [messages[10],3])
+  base.accept('f12', sendMessage, [messages[11],3])
 except:
   pass
   
